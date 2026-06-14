@@ -1,0 +1,398 @@
+name: ${COMPOSE_PROJECT_NAME:-chat}
+
+x-laravel-environment: &laravel-environment
+  APP_NAME: ${APP_NAME:-Chat}
+  APP_ENV: ${APP_ENV:-production}
+  APP_KEY: ${APP_KEY:-}
+  APP_DEBUG: ${APP_DEBUG:-false}
+  APP_URL: ${APP_URL:-https://chat.example.com}
+  APP_FRONTEND_URL: ${APP_FRONTEND_URL:-https://chat.example.com}
+  APP_TIMEZONE: ${APP_TIMEZONE:-UTC}
+  APP_MAINTENANCE_DRIVER: ${APP_MAINTENANCE_DRIVER:-cache}
+  APP_MAINTENANCE_STORE: ${APP_MAINTENANCE_STORE:-redis}
+  LOG_CHANNEL: ${LOG_CHANNEL:-stderr}
+  LOG_STACK: ${LOG_STACK:-stderr}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DB_CONNECTION: ${DB_CONNECTION:-pgsql}
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_DATABASE: ${POSTGRES_DB:-chat}
+  DB_USERNAME: ${POSTGRES_USER:-chat}
+  DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+  SESSION_DRIVER: ${SESSION_DRIVER:-redis}
+  SESSION_CONNECTION: ${SESSION_CONNECTION:-ops}
+  SESSION_STORE: ${SESSION_STORE:-redis}
+  SESSION_DOMAIN: ${SESSION_DOMAIN:-}
+  SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
+  SESSION_SAME_SITE: ${SESSION_SAME_SITE:-lax}
+  SESSION_LIFETIME: ${SESSION_LIFETIME}
+  SANCTUM_STATEFUL_DOMAINS: ${SANCTUM_STATEFUL_DOMAINS:-localhost,127.0.0.1}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
+  CACHE_STORE: ${CACHE_STORE:-redis}
+  REDIS_CACHE_CONNECTION: ${REDIS_CACHE_CONNECTION:-ops_cache}
+  REDIS_CACHE_LOCK_CONNECTION: ${REDIS_CACHE_LOCK_CONNECTION:-ops}
+  QUEUE_CONNECTION: ${QUEUE_CONNECTION:-redis}
+  REDIS_QUEUE_CONNECTION: ${REDIS_QUEUE_CONNECTION:-ops}
+  REDIS_QUEUE: ${REDIS_QUEUE:-default}
+  REDIS_QUEUE_RETRY_AFTER: ${REDIS_QUEUE_RETRY_AFTER:-90}
+  REDIS_CLIENT: ${REDIS_CLIENT:-phpredis}
+  REDIS_PREFIX: ${REDIS_PREFIX:-}
+  REDIS_OPS_HOST: redis-ops
+  REDIS_OPS_PORT: 6379
+  REDIS_OPS_PASSWORD: ${REDIS_OPS_PASSWORD:-change-me}
+  REDIS_OPS_DB: ${REDIS_OPS_DB:-0}
+  REDIS_OPS_CACHE_DB: ${REDIS_OPS_CACHE_DB:-1}
+  REDIS_REALTIME_HOST: redis-realtime
+  REDIS_REALTIME_PORT: 6379
+  REDIS_REALTIME_PASSWORD: ${REDIS_REALTIME_PASSWORD:-change-me}
+  REDIS_REALTIME_DB: ${REDIS_REALTIME_DB:-0}
+  FILESYSTEM_DISK: ${FILESYSTEM_DISK}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+  AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+  AWS_BUCKET: ${AWS_BUCKET}
+  AWS_ENDPOINT: ${AWS_ENDPOINT}
+  AWS_URL: ${AWS_URL}
+  AWS_USE_PATH_STYLE_ENDPOINT: ${AWS_USE_PATH_STYLE_ENDPOINT}
+  MAIL_MAILER: ${MAIL_MAILER:-log}
+  MAIL_HOST: ${MAIL_HOST:-mailpit}
+  MAIL_PORT: ${MAIL_PORT:-1025}
+  MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@example.com}
+  MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Chat}
+  HORIZON_ALLOWED_EMAILS: ${HORIZON_ALLOWED_EMAILS:-}
+  HORIZON_PATH: ${HORIZON_PATH:-horizon}
+  TELESCOPE_ENABLED: ${TELESCOPE_ENABLED:-false}
+  TELESCOPE_PATH: ${TELESCOPE_PATH:-telescope}
+  TELESCOPE_SLOW_QUERY_THRESHOLD: ${TELESCOPE_SLOW_QUERY_THRESHOLD:-100}
+  GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+  GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+  GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+  GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+  VIEW_COMPILED_PATH: /tmp/laravel/views
+
+x-laravel-service: &laravel-service
+  build:
+    context: .
+    dockerfile: docker/api/Dockerfile
+    target: api-php
+  working_dir: /var/www/html
+  environment:
+    <<: *laravel-environment
+  read_only: true
+  tmpfs:
+    - /tmp
+    - /var/tmp
+    - /run
+  restart: unless-stopped
+
+services:
+  edge:
+    image: traefik:v3.6.7
+    command:
+      - --providers.docker.network=${COMPOSE_PROJECT_NAME:-chat}_edge
+      - --certificatesresolvers.default.acme.email=${TRAEFIK_ACME_EMAIL:-ops@example.com}
+      - --certificatesresolvers.default.acme.storage=/acme/acme.json
+      - --certificatesresolvers.default.acme.httpchallenge=true
+      - --certificatesresolvers.default.acme.httpchallenge.entrypoint=web
+    environment:
+      DOCKER_API_VERSION: ${TRAEFIK_DOCKER_API_VERSION:-1.44}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ${TRAEFIK_STATIC_CONFIG:-./docker/edge/traefik.yml}:/etc/traefik/traefik.yml:ro
+      - ./docker/edge/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_acme:/acme
+    networks:
+      - edge-net
+    depends_on:
+      frontend:
+        condition: service_healthy
+      api-web:
+        condition: service_healthy
+      ws:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+      target: frontend-prod
+      args:
+        NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-https://chat.example.com}
+        NUXT_PUBLIC_APP_URL: ${NUXT_PUBLIC_APP_URL:-https://chat.example.com}
+        NUXT_PUBLIC_WS_URL: ${NUXT_PUBLIC_WS_URL:-wss://chat.example.com/ws}
+        NUXT_AUTH_TIMEOUT: ${NUXT_AUTH_TIMEOUT:-10000}
+    networks:
+      - edge-net
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.frontend.rule: Host(`${APP_DOMAIN:-chat.example.com}`)
+      traefik.http.routers.frontend.entrypoints: ${TRAEFIK_ROUTER_ENTRYPOINTS:-websecure}
+      traefik.http.routers.frontend.tls: ${TRAEFIK_ROUTER_TLS:-true}
+      traefik.http.routers.frontend.tls.certresolver: ${TRAEFIK_CERT_RESOLVER:-default}
+      traefik.http.routers.frontend.priority: "1"
+      traefik.http.routers.frontend.middlewares: secure-headers@file,gzip@file
+      traefik.http.services.frontend.loadbalancer.server.port: "80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  api-php:
+    <<: *laravel-service
+    networks:
+      - edge-net
+      - ops-net
+      - realtime-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis-ops:
+        condition: service_healthy
+      redis-realtime:
+        condition: service_healthy
+      rustfs:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+
+  api-web:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+      target: api-web
+    networks:
+      - edge-net
+    depends_on:
+      api-php:
+        condition: service_started
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.api.rule: Host(`${APP_DOMAIN:-chat.example.com}`) && (PathPrefix(`/api`) || PathPrefix(`/auth`) || PathPrefix(`/sanctum`) || PathPrefix(`/${HORIZON_PATH:-horizon}`) || Path(`/up`))
+      traefik.http.routers.api.entrypoints: ${TRAEFIK_ROUTER_ENTRYPOINTS:-websecure}
+      traefik.http.routers.api.tls: ${TRAEFIK_ROUTER_TLS:-true}
+      traefik.http.routers.api.tls.certresolver: ${TRAEFIK_CERT_RESOLVER:-default}
+      traefik.http.routers.api.priority: "100"
+      traefik.http.routers.api.middlewares: secure-headers@file,gzip@file
+      traefik.http.services.api.loadbalancer.server.port: "80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  migrate:
+    <<: *laravel-service
+    command: ["/docker/laravel/migrate.sh"]
+    networks:
+      - ops-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis-ops:
+        condition: service_healthy
+    restart: "no"
+
+  horizon:
+    <<: *laravel-service
+    command: ["/docker/laravel/horizon.sh"]
+    networks:
+      - ops-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis-ops:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "php artisan horizon:status | grep -qi 'running' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  scheduler:
+    <<: *laravel-service
+    command: ["/docker/laravel/scheduler.sh"]
+    networks:
+      - ops-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis-ops:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  composer:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+      target: composer-dev
+    profiles: ["tools"]
+    working_dir: /var/www/html
+    environment:
+      <<: *laravel-environment
+    networks:
+      - ops-net
+      - realtime-net
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis-ops:
+        condition: service_healthy
+      redis-realtime:
+        condition: service_healthy
+      rustfs:
+        condition: service_started
+    restart: "no"
+
+  ws:
+    build:
+      context: .
+      dockerfile: docker/ws/Dockerfile
+      target: ws-prod
+    environment:
+      WS_HOST: 0.0.0.0
+      WS_PORT: ${WS_PORT:-8080}
+      REDIS_HOST: redis-realtime
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_REALTIME_PASSWORD:-change-me}
+      REDIS_DB: ${REDIS_REALTIME_DB:-0}
+      REDIS_CHANNEL: ${REDIS_CHANNEL:-messages.created}
+    networks:
+      - edge-net
+      - realtime-net
+    depends_on:
+      redis-realtime:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: ${COMPOSE_PROJECT_NAME:-chat}_edge
+      traefik.http.routers.ws.rule: Host(`${APP_DOMAIN:-chat.example.com}`) && PathPrefix(`/ws`)
+      traefik.http.routers.ws.entrypoints: ${TRAEFIK_ROUTER_ENTRYPOINTS:-websecure}
+      traefik.http.routers.ws.tls: ${TRAEFIK_ROUTER_TLS:-true}
+      traefik.http.routers.ws.tls.certresolver: ${TRAEFIK_CERT_RESOLVER:-default}
+      traefik.http.routers.ws.priority: "110"
+      traefik.http.routers.ws.middlewares: secure-headers@file
+      traefik.http.services.ws.loadbalancer.server.port: ${WS_PORT:-8080}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${WS_PORT:-8080}/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-chat}
+      POSTGRES_USER: ${POSTGRES_USER:-chat}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      TZ: ${APP_TIMEZONE:-UTC}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ops-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  redis-ops:
+    image: redis:8.6-alpine
+    command: ["sh", "-ec", "exec redis-server /usr/local/etc/redis/redis.conf --requirepass \"$$REDIS_PASSWORD\""]
+    environment:
+      REDIS_PASSWORD: ${REDIS_OPS_PASSWORD:-change-me}
+    volumes:
+      - ./docker/redis/ops.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis_ops_data:/data
+    networks:
+      - ops-net
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  redis-realtime:
+    image: redis:8.6-alpine
+    command: ["sh", "-ec", "exec redis-server /usr/local/etc/redis/redis.conf --requirepass \"$$REDIS_PASSWORD\""]
+    environment:
+      REDIS_PASSWORD: ${REDIS_REALTIME_PASSWORD:-change-me}
+    volumes:
+      - ./docker/redis/realtime.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis_realtime_data:/data
+    networks:
+      - realtime-net
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  rustfs:
+    image: rustfs/rustfs@sha256:0725587f6fcca83c1898f321424327d6e6da5e01ea20382905dd258ed5af3be4
+    environment:
+      RUSTFS_ACCESS_KEY: ${AWS_ACCESS_KEY_ID}
+      RUSTFS_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY}
+      RUSTFS_VOLUMES: /data/rustfs0
+      RUSTFS_ADDRESS: :9000
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUST_LOG: info
+    volumes:
+      - rustfs_data:/data
+    networks:
+      - ops-net
+    restart: unless-stopped
+
+networks:
+  edge-net:
+    name: ${COMPOSE_PROJECT_NAME:-chat}_edge
+  ops-net:
+    name: ${COMPOSE_PROJECT_NAME:-chat}_ops
+  realtime-net:
+    name: ${COMPOSE_PROJECT_NAME:-chat}_realtime
+
+volumes:
+  traefik_acme:
+  postgres_data:
+  redis_ops_data:
+  redis_realtime_data:
+  rustfs_data:

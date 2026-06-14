@@ -1,0 +1,30 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+#nprogress {
+	pointer-events: none;
+}
+
+#nprogress .bar {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 2000;
+	height: 2px;
+	width: 100%;
+	background: linear-gradient(90deg, #10b981 0%, #34d399 45%, #38bdf8 100%);
+	box-shadow: 0 0 18px rgba(16, 185, 129, 0.4);
+}
+
+#nprogress .peg {
+	position: absolute;
+	right: 0;
+	display: block;
+	height: 100%;
+	width: 120px;
+	opacity: 1;
+	transform: rotate(3deg) translateY(-1px);
+	box-shadow:
+		0 0 10px rgba(16, 185, 129, 0.7),
+		0 0 20px rgba(56, 189, 248, 0.45);
+}

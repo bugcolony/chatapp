@@ -1,0 +1,49 @@
+## Environment files
+.env
+.env.*
+!.env.example
+
+## Local Docker state and secrets
+/docker/secrets/
+/docker/data/
+
+## Go build and test outputs
+/ws/bin/
+/ws/*.test
+/ws/coverage.out
+/ws/*.prof
+
+## Local tooling and editor state
+.idea/
+.vscode/
+.fleet/
+.zed/
+.agent/
+.agents/
+.aider/
+.ai/
+.claude/
+.cline/
+.codex
+.codex/
+.codex-snapshots/
+.continue/
+.copilot/
+.cursor/
+.gemini/
+.junie/
+.opencode/
+.roo/
+.windsurf/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+boost.json
+opencode.json
+.cursorrules
+
+## OS/editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

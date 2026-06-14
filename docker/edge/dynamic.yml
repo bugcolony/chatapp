@@ -1,0 +1,15 @@
+http:
+  middlewares:
+    secure-headers:
+      headers:
+        contentTypeNosniff: true
+        browserXssFilter: true
+        frameDeny: true
+        referrerPolicy: strict-origin-when-cross-origin
+        permissionsPolicy: camera=(), microphone=(), geolocation=()
+        customResponseHeaders:
+          X-Frame-Options: DENY
+          X-Content-Type-Options: nosniff
+    gzip:
+      compress: {}
+
