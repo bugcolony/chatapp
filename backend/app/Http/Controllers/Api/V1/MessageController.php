@@ -23,7 +23,7 @@ class MessageController extends Controller
             ->messages()
             ->latest('id')
             ->with('author')
-            ->cursorPaginate(6)
+            ->cursorPaginate(12)
             ->toResourceCollection();
     }
 
