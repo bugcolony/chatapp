@@ -1,9 +1,15 @@
 name: ${COMPOSE_PROJECT_NAME:-chat}
 
+x-default-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 x-laravel-environment: &laravel-environment
   APP_NAME: ${APP_NAME:-Chat}
   APP_ENV: ${APP_ENV:-production}
-  APP_KEY: ${APP_KEY:-}
+  APP_KEY: ${APP_KEY:?APP_KEY is required}
   APP_DEBUG: ${APP_DEBUG:-false}
   APP_URL: ${APP_URL:-https://chat.example.com}
   APP_FRONTEND_URL: ${APP_FRONTEND_URL:-https://chat.example.com}
@@ -18,7 +24,7 @@ x-laravel-environment: &laravel-environment
   DB_PORT: 5432
   DB_DATABASE: ${POSTGRES_DB:-chat}
   DB_USERNAME: ${POSTGRES_USER:-chat}
-  DB_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+  DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
   SESSION_DRIVER: ${SESSION_DRIVER:-redis}
   SESSION_CONNECTION: ${SESSION_CONNECTION:-ops}
   SESSION_STORE: ${SESSION_STORE:-redis}
@@ -39,16 +45,16 @@ x-laravel-environment: &laravel-environment
   REDIS_PREFIX: ${REDIS_PREFIX:-}
   REDIS_OPS_HOST: redis-ops
   REDIS_OPS_PORT: 6379
-  REDIS_OPS_PASSWORD: ${REDIS_OPS_PASSWORD:-change-me}
+  REDIS_OPS_PASSWORD: ${REDIS_OPS_PASSWORD:?REDIS_OPS_PASSWORD is required}
   REDIS_OPS_DB: ${REDIS_OPS_DB:-0}
   REDIS_OPS_CACHE_DB: ${REDIS_OPS_CACHE_DB:-1}
   REDIS_REALTIME_HOST: redis-realtime
   REDIS_REALTIME_PORT: 6379
-  REDIS_REALTIME_PASSWORD: ${REDIS_REALTIME_PASSWORD:-change-me}
+  REDIS_REALTIME_PASSWORD: ${REDIS_REALTIME_PASSWORD:?REDIS_REALTIME_PASSWORD is required}
   REDIS_REALTIME_DB: ${REDIS_REALTIME_DB:-0}
   FILESYSTEM_DISK: ${FILESYSTEM_DISK}
-  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}
   AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
   AWS_BUCKET: ${AWS_BUCKET}
   AWS_ENDPOINT: ${AWS_ENDPOINT}
@@ -83,9 +89,30 @@ x-laravel-service: &laravel-service
     - /tmp
     - /var/tmp
     - /run
+  logging: *default-logging
   restart: unless-stopped
 
 services:
+  docker-proxy:
+    image: ghcr.io/tecnativa/docker-socket-proxy:v0.4.2@sha256:1f3a6f303320723d199d2316a3e82b2e2685d86c275d5e3deeaf182573b47476
+    environment:
+      CONTAINERS: "1"
+      NETWORKS: "1"
+      POST: "0"
+      LOG_LEVEL: warning
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - docker-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:2375/_ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    logging: *default-logging
+    restart: unless-stopped
+
   edge:
     image: traefik:v3.6.7
     command:
@@ -102,11 +129,13 @@ services:
     volumes:
       - ${TRAEFIK_STATIC_CONFIG:-./docker/edge/traefik.yml}:/etc/traefik/traefik.yml:ro
       - ./docker/edge/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_acme:/acme
     networks:
       - edge-net
+      - docker-net
     depends_on:
+      docker-proxy:
+        condition: service_healthy
       frontend:
         condition: service_healthy
       api-web:
@@ -119,6 +148,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    logging: *default-logging
     restart: unless-stopped
 
   frontend:
@@ -152,6 +182,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+    logging: *default-logging
     restart: unless-stopped
 
   api-php:
@@ -168,7 +199,7 @@ services:
       redis-realtime:
         condition: service_healthy
       rustfs:
-        condition: service_started
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
 
@@ -201,6 +232,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    logging: *default-logging
     restart: unless-stopped
 
   migrate:
@@ -269,7 +301,7 @@ services:
       redis-realtime:
         condition: service_healthy
       rustfs:
-        condition: service_started
+        condition: service_healthy
     restart: "no"
 
   ws:
@@ -282,7 +314,7 @@ services:
       WS_PORT: ${WS_PORT:-8080}
       REDIS_HOST: redis-realtime
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_REALTIME_PASSWORD:-change-me}
+      REDIS_PASSWORD: ${REDIS_REALTIME_PASSWORD:?REDIS_REALTIME_PASSWORD is required}
       REDIS_DB: ${REDIS_REALTIME_DB:-0}
       REDIS_CHANNEL: ${REDIS_CHANNEL:-messages.created}
     networks:
@@ -310,6 +342,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    logging: *default-logging
     restart: unless-stopped
 
   postgres:
@@ -317,7 +350,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-chat}
       POSTGRES_USER: ${POSTGRES_USER:-chat}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       TZ: ${APP_TIMEZONE:-UTC}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -329,13 +362,14 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+    logging: *default-logging
     restart: unless-stopped
 
   redis-ops:
     image: redis:8.6-alpine
     command: ["sh", "-ec", "exec redis-server /usr/local/etc/redis/redis.conf --requirepass \"$$REDIS_PASSWORD\""]
     environment:
-      REDIS_PASSWORD: ${REDIS_OPS_PASSWORD:-change-me}
+      REDIS_PASSWORD: ${REDIS_OPS_PASSWORD:?REDIS_OPS_PASSWORD is required}
     volumes:
       - ./docker/redis/ops.conf:/usr/local/etc/redis/redis.conf:ro
       - redis_ops_data:/data
@@ -347,13 +381,14 @@ services:
       timeout: 5s
       retries: 10
       start_period: 5s
+    logging: *default-logging
     restart: unless-stopped
 
   redis-realtime:
     image: redis:8.6-alpine
     command: ["sh", "-ec", "exec redis-server /usr/local/etc/redis/redis.conf --requirepass \"$$REDIS_PASSWORD\""]
     environment:
-      REDIS_PASSWORD: ${REDIS_REALTIME_PASSWORD:-change-me}
+      REDIS_PASSWORD: ${REDIS_REALTIME_PASSWORD:?REDIS_REALTIME_PASSWORD is required}
     volumes:
       - ./docker/redis/realtime.conf:/usr/local/etc/redis/redis.conf:ro
       - redis_realtime_data:/data
@@ -365,13 +400,14 @@ services:
       timeout: 5s
       retries: 10
       start_period: 5s
+    logging: *default-logging
     restart: unless-stopped
 
   rustfs:
     image: rustfs/rustfs@sha256:0725587f6fcca83c1898f321424327d6e6da5e01ea20382905dd258ed5af3be4
     environment:
-      RUSTFS_ACCESS_KEY: ${AWS_ACCESS_KEY_ID}
-      RUSTFS_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY}
+      RUSTFS_ACCESS_KEY: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}
+      RUSTFS_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}
       RUSTFS_VOLUMES: /data/rustfs0
       RUSTFS_ADDRESS: :9000
       RUSTFS_CONSOLE_ENABLE: "true"
@@ -380,9 +416,18 @@ services:
       - rustfs_data:/data
     networks:
       - ops-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    logging: *default-logging
     restart: unless-stopped
 
 networks:
+  docker-net:
+    internal: true
   edge-net:
     name: ${COMPOSE_PROJECT_NAME:-chat}_edge
   ops-net:

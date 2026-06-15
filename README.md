@@ -155,7 +155,12 @@ least:
 - `TRAEFIK_ACME_EMAIL`
 - OAuth client credentials when social login is enabled
 
-Do not deploy using the defaults from `.env.example`.
+Compose rejects missing application, database, Redis, and RustFS/S3 secrets.
+It does not reject the local placeholder values from `.env.example`, so do not
+deploy using those values.
+
+Traefik accesses Docker through an internal read-only API proxy. Do not expose
+the `docker-proxy` service or its port outside the private Compose network.
 
 ## License
 
