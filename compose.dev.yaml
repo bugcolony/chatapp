@@ -62,6 +62,7 @@ services:
       - /tmp
       - /var/tmp
       - /run
+      - /var/www/html/bootstrap/cache:mode=1777
 
   api-web:
     volumes:
@@ -102,7 +103,8 @@ services:
       - backend_vendor:/var/www/html/vendor
       - composer_cache:/tmp/composer
     read_only: false
-    tmpfs: []
+    tmpfs:
+      - /var/www/html/bootstrap/cache:mode=1777
 
   ws:
     build:

@@ -93,6 +93,7 @@ x-laravel-service: &laravel-service
     - /tmp
     - /var/tmp
     - /run
+    - /var/www/html/bootstrap/cache:mode=1777
   logging: *default-logging
   restart: unless-stopped
   deploy:
@@ -379,6 +380,8 @@ services:
     working_dir: /var/www/html
     environment:
       <<: *laravel-environment
+    tmpfs:
+      - /var/www/html/bootstrap/cache:mode=1777
     networks:
       - ops-net
       - realtime-net
