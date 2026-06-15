@@ -41,11 +41,8 @@ FROM php:8.5-fpm-alpine AS api-php
 WORKDIR /var/www/html
 
 RUN apk add --no-cache \
-        fcgi \
         libpq \
         libzip \
-        nginx \
-        su-exec \
     && apk add --no-cache --virtual .build-deps \
         $PHPIZE_DEPS \
         postgresql-dev \
@@ -81,13 +78,19 @@ RUN php artisan package:discover --ansi \
 ENTRYPOINT ["docker-entrypoint"]
 CMD ["php-fpm", "-F"]
 
+USER www-data
+
 FROM api-php AS api-php-dev
+
+USER root
 
 COPY --from=composer-deps-dev /app/backend /var/www/html
 
 RUN php artisan package:discover --ansi \
     && chmod -R a+rwX /var/www/html/vendor \
     && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+USER www-data
 
 FROM api-php-dev AS composer-dev
 
@@ -96,9 +99,20 @@ COPY --from=composer-bin /usr/bin/composer /usr/bin/composer
 ENTRYPOINT ["composer"]
 CMD ["--version"]
 
-FROM nginx:1.27-alpine AS api-web
+FROM nginx:1.30.2-alpine3.23 AS api-web
 
 WORKDIR /var/www/html
 
+RUN apk upgrade --no-cache \
+    && apk del --no-cache curl
+
+COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY docker/api/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=composer-deps /app/backend/public /var/www/html/public
+
+USER nginx
+
+EXPOSE 8080
+
+ENTRYPOINT ["nginx"]
+CMD ["-g", "daemon off;"]

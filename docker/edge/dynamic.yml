@@ -5,6 +5,7 @@ http:
         contentTypeNosniff: true
         browserXssFilter: true
         frameDeny: true
+        stsSeconds: 31536000
         referrerPolicy: strict-origin-when-cross-origin
         permissionsPolicy: camera=(), microphone=(), geolocation=()
         customResponseHeaders:
@@ -12,4 +13,3 @@ http:
           X-Content-Type-Options: nosniff
     gzip:
       compress: {}
-

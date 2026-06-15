@@ -143,7 +143,9 @@ Production uses `compose.yaml` without the development override:
 ```bash
 cp .env.production.example .env.production
 # Replace every change-me value and configure the production hostname.
-docker compose --env-file .env.production -f compose.yaml up --build -d
+chmod 600 .env.production
+docker compose --env-file .env.production -f compose.yaml build --pull
+docker compose --env-file .env.production -f compose.yaml up -d --remove-orphans
 ```
 
 Configure at least:
@@ -156,12 +158,18 @@ Configure at least:
 - `TRAEFIK_ACME_EMAIL`
 - OAuth client credentials when social login is enabled
 
-Compose also rejects missing application, database, Redis, and RustFS/S3
-secrets.
+Compose rejects missing application, database, Redis, and RustFS/S3 secrets.
+
+`AWS_URL` is intentionally empty by default. Set it only when the object
+storage bucket is exposed through a real public URL or CDN.
 
 Traefik accesses Docker through an internal read-only API proxy. Do not expose
 the `docker-proxy` service or its port outside the private Compose network.
 Each Traefik instance only discovers containers from its own Compose project.
+
+The stack runs database migrations automatically during startup. Back up the
+PostgreSQL and RustFS volumes before upgrades, and keep an off-host backup for
+any deployment that stores real user data.
 
 ## License
 

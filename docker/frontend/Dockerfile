@@ -41,7 +41,18 @@ COPY frontend ./
 EXPOSE 3000
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
 
-FROM nginx:1.27-alpine AS frontend-prod
+FROM nginx:1.30.2-alpine3.23 AS frontend-prod
 
+RUN apk upgrade --no-cache \
+    && apk del --no-cache curl
+
+COPY docker/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY docker/frontend/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=frontend-build /app/.output/public /usr/share/nginx/html
+
+USER nginx
+
+EXPOSE 8080
+
+ENTRYPOINT ["nginx"]
+CMD ["-g", "daemon off;"]

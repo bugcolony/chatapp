@@ -31,7 +31,6 @@ for file_var in $(env | cut -d= -f1 | grep '_FILE$' || true); do
 done
 
 mkdir -p /tmp/laravel/views
-chown -R www-data:www-data /tmp/laravel
-chmod -R u+rwX,g+rwX /tmp/laravel
+chmod -R u+rwX,g+rwX,o-rwx /tmp/laravel
 
 exec "$@"

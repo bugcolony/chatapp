@@ -11,8 +11,8 @@ x-laravel-environment: &laravel-environment
   APP_ENV: ${APP_ENV:-production}
   APP_KEY: ${APP_KEY:?APP_KEY is required}
   APP_DEBUG: ${APP_DEBUG:-false}
-  APP_URL: ${APP_URL:-https://chat.example.com}
-  APP_FRONTEND_URL: ${APP_FRONTEND_URL:-https://chat.example.com}
+  APP_URL: ${APP_URL:?APP_URL is required}
+  APP_FRONTEND_URL: ${APP_FRONTEND_URL:?APP_FRONTEND_URL is required}
   APP_TIMEZONE: ${APP_TIMEZONE:-UTC}
   APP_MAINTENANCE_DRIVER: ${APP_MAINTENANCE_DRIVER:-cache}
   APP_MAINTENANCE_STORE: ${APP_MAINTENANCE_STORE:-redis}
@@ -31,9 +31,9 @@ x-laravel-environment: &laravel-environment
   SESSION_DOMAIN: ${SESSION_DOMAIN:-}
   SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-true}
   SESSION_SAME_SITE: ${SESSION_SAME_SITE:-lax}
-  SESSION_LIFETIME: ${SESSION_LIFETIME}
-  SANCTUM_STATEFUL_DOMAINS: ${SANCTUM_STATEFUL_DOMAINS:-localhost,127.0.0.1}
-  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
+  SESSION_LIFETIME: ${SESSION_LIFETIME:-43200}
+  SANCTUM_STATEFUL_DOMAINS: ${SANCTUM_STATEFUL_DOMAINS:?SANCTUM_STATEFUL_DOMAINS is required}
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required}
   CACHE_STORE: ${CACHE_STORE:-redis}
   REDIS_CACHE_CONNECTION: ${REDIS_CACHE_CONNECTION:-ops_cache}
   REDIS_CACHE_LOCK_CONNECTION: ${REDIS_CACHE_LOCK_CONNECTION:-ops}
@@ -52,16 +52,16 @@ x-laravel-environment: &laravel-environment
   REDIS_REALTIME_PORT: 6379
   REDIS_REALTIME_PASSWORD: ${REDIS_REALTIME_PASSWORD:?REDIS_REALTIME_PASSWORD is required}
   REDIS_REALTIME_DB: ${REDIS_REALTIME_DB:-0}
-  FILESYSTEM_DISK: ${FILESYSTEM_DISK}
+  FILESYSTEM_DISK: ${FILESYSTEM_DISK:-s3}
   AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}
   AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}
-  AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
-  AWS_BUCKET: ${AWS_BUCKET}
-  AWS_ENDPOINT: ${AWS_ENDPOINT}
-  AWS_URL: ${AWS_URL}
-  AWS_USE_PATH_STYLE_ENDPOINT: ${AWS_USE_PATH_STYLE_ENDPOINT}
+  AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+  AWS_BUCKET: ${AWS_BUCKET:?AWS_BUCKET is required}
+  AWS_ENDPOINT: ${AWS_ENDPOINT:-http://rustfs:9000}
+  AWS_URL: ${AWS_URL:-}
+  AWS_USE_PATH_STYLE_ENDPOINT: ${AWS_USE_PATH_STYLE_ENDPOINT:-true}
   MAIL_MAILER: ${MAIL_MAILER:-log}
-  MAIL_HOST: ${MAIL_HOST:-mailpit}
+  MAIL_HOST: ${MAIL_HOST:-127.0.0.1}
   MAIL_PORT: ${MAIL_PORT:-1025}
   MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@example.com}
   MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Chat}
@@ -85,16 +85,30 @@ x-laravel-service: &laravel-service
   environment:
     <<: *laravel-environment
   read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
   tmpfs:
     - /tmp
     - /var/tmp
     - /run
   logging: *default-logging
   restart: unless-stopped
+  deploy:
+    resources:
+      limits:
+        memory: 512M
+        cpus: '1.0'
+      reservations:
+        memory: 256M
+        cpus: '0.5'
 
 services:
   docker-proxy:
-    image: ghcr.io/tecnativa/docker-socket-proxy:v0.4.2@sha256:1f3a6f303320723d199d2316a3e82b2e2685d86c275d5e3deeaf182573b47476
+    build:
+      context: .
+      dockerfile: docker/socket-proxy/Dockerfile
     environment:
       CONTAINERS: "1"
       NETWORKS: "1"
@@ -102,6 +116,12 @@ services:
       LOG_LEVEL: warning
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+      - /run
     networks:
       - docker-net
     healthcheck:
@@ -112,9 +132,19 @@ services:
       start_period: 5s
     logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+        reservations:
+          memory: 64M
+          cpus: '0.1'
 
   edge:
-    image: traefik:v3.6.7
+    build:
+      context: .
+      dockerfile: docker/edge/Dockerfile
     command:
       - --global.checknewversion=false
       - --global.sendanonymoususage=false
@@ -144,6 +174,15 @@ services:
     volumes:
       - ./docker/edge/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
       - traefik_acme:/acme
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    tmpfs:
+      - /tmp
     networks:
       - edge-net
       - docker-net
@@ -164,6 +203,14 @@ services:
       start_period: 10s
     logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '1.0'
+        reservations:
+          memory: 128M
+          cpus: '0.5'
 
   frontend:
     build:
@@ -178,9 +225,12 @@ services:
     networks:
       - edge-net
     read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     tmpfs:
-      - /var/cache/nginx
-      - /var/run
+      - /tmp
     labels:
       - traefik.enable=true
       - chat.stack=${COMPOSE_PROJECT_NAME:-chat}
@@ -190,22 +240,31 @@ services:
       - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-frontend.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-default}
       - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-frontend.priority=1
       - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-frontend.middlewares=secure-headers@file,gzip@file
-      - traefik.http.services.${COMPOSE_PROJECT_NAME:-chat}-frontend.loadbalancer.server.port=80
+      - traefik.http.services.${COMPOSE_PROJECT_NAME:-chat}-frontend.loadbalancer.server.port=8080
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
     logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
 
   api-php:
     <<: *laravel-service
     networks:
-      - edge-net
+      - api-net
       - ops-net
       - realtime-net
+      - egress-net
     depends_on:
       postgres:
         condition: service_healthy
@@ -225,13 +284,17 @@ services:
       target: api-web
     networks:
       - edge-net
+      - api-net
     depends_on:
       api-php:
         condition: service_started
     read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     tmpfs:
-      - /var/cache/nginx
-      - /var/run
+      - /tmp
     labels:
       - traefik.enable=true
       - chat.stack=${COMPOSE_PROJECT_NAME:-chat}
@@ -241,15 +304,23 @@ services:
       - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-api.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-default}
       - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-api.priority=100
       - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-api.middlewares=secure-headers@file,gzip@file
-      - traefik.http.services.${COMPOSE_PROJECT_NAME:-chat}-api.loadbalancer.server.port=80
+      - traefik.http.services.${COMPOSE_PROJECT_NAME:-chat}-api.loadbalancer.server.port=8080
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/api/health >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/api/health >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
       start_period: 15s
     logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.75'
+        reservations:
+          memory: 128M
+          cpus: '0.5'
 
   migrate:
     <<: *laravel-service
@@ -268,6 +339,7 @@ services:
     command: ["/docker/laravel/horizon.sh"]
     networks:
       - ops-net
+      - egress-net
     depends_on:
       postgres:
         condition: service_healthy
@@ -288,6 +360,7 @@ services:
     command: ["/docker/laravel/scheduler.sh"]
     networks:
       - ops-net
+      - egress-net
     depends_on:
       postgres:
         condition: service_healthy
@@ -309,6 +382,7 @@ services:
     networks:
       - ops-net
       - realtime-net
+      - egress-net
     depends_on:
       postgres:
         condition: service_healthy
@@ -340,6 +414,10 @@ services:
       redis-realtime:
         condition: service_healthy
     read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     tmpfs:
       - /tmp
     labels:
@@ -361,9 +439,19 @@ services:
       start_period: 10s
     logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '1.0'
+        reservations:
+          memory: 128M
+          cpus: '0.5'
 
   postgres:
-    image: postgres:17-alpine
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-chat}
       POSTGRES_USER: ${POSTGRES_USER:-chat}
@@ -371,6 +459,14 @@ services:
       TZ: ${APP_TIMEZONE:-UTC}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql:uid=70,gid=70,mode=3777
     networks:
       - ops-net
     healthcheck:
@@ -381,15 +477,32 @@ services:
       start_period: 10s
     logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '2.0'
+        reservations:
+          memory: 512M
+          cpus: '1.0'
 
   redis-ops:
-    image: redis:8.6-alpine
+    build:
+      context: .
+      dockerfile: docker/redis/Dockerfile
     command: ["sh", "-ec", "exec redis-server /usr/local/etc/redis/redis.conf --requirepass \"$$REDIS_PASSWORD\""]
     environment:
       REDIS_PASSWORD: ${REDIS_OPS_PASSWORD:?REDIS_OPS_PASSWORD is required}
     volumes:
       - ./docker/redis/ops.conf:/usr/local/etc/redis/redis.conf:ro
       - redis_ops_data:/data
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
     networks:
       - ops-net
     healthcheck:
@@ -400,15 +513,32 @@ services:
       start_period: 5s
     logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
 
   redis-realtime:
-    image: redis:8.6-alpine
+    build:
+      context: .
+      dockerfile: docker/redis/Dockerfile
     command: ["sh", "-ec", "exec redis-server /usr/local/etc/redis/redis.conf --requirepass \"$$REDIS_PASSWORD\""]
     environment:
       REDIS_PASSWORD: ${REDIS_REALTIME_PASSWORD:?REDIS_REALTIME_PASSWORD is required}
     volumes:
       - ./docker/redis/realtime.conf:/usr/local/etc/redis/redis.conf:ro
       - redis_realtime_data:/data
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
     networks:
       - realtime-net
     healthcheck:
@@ -419,38 +549,72 @@ services:
       start_period: 5s
     logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '1.0'
+        reservations:
+          memory: 128M
+          cpus: '0.5'
 
   rustfs:
-    image: rustfs/rustfs@sha256:0725587f6fcca83c1898f321424327d6e6da5e01ea20382905dd258ed5af3be4
+    build:
+      context: .
+      dockerfile: docker/rustfs/Dockerfile
     environment:
       RUSTFS_ACCESS_KEY: ${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID is required}
       RUSTFS_SECRET_KEY: ${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY is required}
       RUSTFS_VOLUMES: /data/rustfs0
       RUSTFS_ADDRESS: :9000
-      RUSTFS_CONSOLE_ENABLE: "true"
-      RUST_LOG: info
+      RUSTFS_CONSOLE_ENABLE: "false"
+      RUSTFS_OBS_ENVIRONMENT: production
+      RUSTFS_OBS_LOG_DIRECTORY: ""
+      RUSTFS_OBS_LOGGER_LEVEL: warn
     volumes:
       - rustfs_data:/data
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
     networks:
       - ops-net
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/health >/dev/null || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9000/health >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
       start_period: 20s
     logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '1.0'
 
 networks:
+  api-net:
+    name: ${COMPOSE_PROJECT_NAME:-chat}_api
+    internal: true
   docker-net:
     internal: true
   edge-net:
     name: ${COMPOSE_PROJECT_NAME:-chat}_edge
+  egress-net:
+    name: ${COMPOSE_PROJECT_NAME:-chat}_egress
   ops-net:
     name: ${COMPOSE_PROJECT_NAME:-chat}_ops
+    internal: true
   realtime-net:
     name: ${COMPOSE_PROJECT_NAME:-chat}_realtime
+    internal: true
 
 volumes:
   traefik_acme:
