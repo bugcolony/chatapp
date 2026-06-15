@@ -156,3 +156,12 @@ least:
 - OAuth client credentials when social login is enabled
 
 Do not deploy using the defaults from `.env.example`.
+
+## License
+
+This project is not open source. The code is made available for 
+evaluation and portfolio review purposes only. You may not use, 
+copy, modify, or distribute it without explicit written permission 
+from the author.
+
+© 2026 [bugcolony](https://github.com/bugcolony). All rights reserved.
