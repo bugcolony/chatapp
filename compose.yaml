@@ -116,7 +116,22 @@ services:
   edge:
     image: traefik:v3.6.7
     command:
+      - --global.checknewversion=false
+      - --global.sendanonymoususage=false
+      - --api.dashboard=true
+      - --ping=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.address=:443
+      - --providers.docker.endpoint=tcp://docker-proxy:2375
+      - --providers.docker.exposedbydefault=false
       - --providers.docker.network=${COMPOSE_PROJECT_NAME:-chat}_edge
+      - '--providers.docker.constraints=Label(`chat.stack`,`${COMPOSE_PROJECT_NAME:-chat}`)'
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      - --log.level=INFO
+      - --accesslog=true
       - --certificatesresolvers.default.acme.email=${TRAEFIK_ACME_EMAIL:-ops@example.com}
       - --certificatesresolvers.default.acme.storage=/acme/acme.json
       - --certificatesresolvers.default.acme.httpchallenge=true
@@ -127,7 +142,6 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ${TRAEFIK_STATIC_CONFIG:-./docker/edge/traefik.yml}:/etc/traefik/traefik.yml:ro
       - ./docker/edge/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
       - traefik_acme:/acme
     networks:
@@ -168,14 +182,15 @@ services:
       - /var/cache/nginx
       - /var/run
     labels:
-      traefik.enable: "true"
-      traefik.http.routers.frontend.rule: Host(`${APP_DOMAIN:-chat.example.com}`)
-      traefik.http.routers.frontend.entrypoints: ${TRAEFIK_ROUTER_ENTRYPOINTS:-websecure}
-      traefik.http.routers.frontend.tls: ${TRAEFIK_ROUTER_TLS:-true}
-      traefik.http.routers.frontend.tls.certresolver: ${TRAEFIK_CERT_RESOLVER:-default}
-      traefik.http.routers.frontend.priority: "1"
-      traefik.http.routers.frontend.middlewares: secure-headers@file,gzip@file
-      traefik.http.services.frontend.loadbalancer.server.port: "80"
+      - traefik.enable=true
+      - chat.stack=${COMPOSE_PROJECT_NAME:-chat}
+      - 'traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-frontend.rule=Host(`${APP_DOMAIN:-chat.example.com}`)'
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-frontend.entrypoints=${TRAEFIK_ROUTER_ENTRYPOINTS:-websecure}
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-frontend.tls=${TRAEFIK_ROUTER_TLS:-true}
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-frontend.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-default}
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-frontend.priority=1
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-frontend.middlewares=secure-headers@file,gzip@file
+      - traefik.http.services.${COMPOSE_PROJECT_NAME:-chat}-frontend.loadbalancer.server.port=80
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/health >/dev/null 2>&1 || exit 1"]
       interval: 30s
@@ -218,14 +233,15 @@ services:
       - /var/cache/nginx
       - /var/run
     labels:
-      traefik.enable: "true"
-      traefik.http.routers.api.rule: Host(`${APP_DOMAIN:-chat.example.com}`) && (PathPrefix(`/api`) || PathPrefix(`/auth`) || PathPrefix(`/sanctum`) || PathPrefix(`/${HORIZON_PATH:-horizon}`) || Path(`/up`))
-      traefik.http.routers.api.entrypoints: ${TRAEFIK_ROUTER_ENTRYPOINTS:-websecure}
-      traefik.http.routers.api.tls: ${TRAEFIK_ROUTER_TLS:-true}
-      traefik.http.routers.api.tls.certresolver: ${TRAEFIK_CERT_RESOLVER:-default}
-      traefik.http.routers.api.priority: "100"
-      traefik.http.routers.api.middlewares: secure-headers@file,gzip@file
-      traefik.http.services.api.loadbalancer.server.port: "80"
+      - traefik.enable=true
+      - chat.stack=${COMPOSE_PROJECT_NAME:-chat}
+      - 'traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-api.rule=Host(`${APP_DOMAIN:-chat.example.com}`) && (PathPrefix(`/api`) || PathPrefix(`/auth`) || PathPrefix(`/sanctum`) || PathPrefix(`/${HORIZON_PATH:-horizon}`) || Path(`/up`))'
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-api.entrypoints=${TRAEFIK_ROUTER_ENTRYPOINTS:-websecure}
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-api.tls=${TRAEFIK_ROUTER_TLS:-true}
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-api.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-default}
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-api.priority=100
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-api.middlewares=secure-headers@file,gzip@file
+      - traefik.http.services.${COMPOSE_PROJECT_NAME:-chat}-api.loadbalancer.server.port=80
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/api/health >/dev/null 2>&1 || exit 1"]
       interval: 30s
@@ -327,15 +343,16 @@ services:
     tmpfs:
       - /tmp
     labels:
-      traefik.enable: "true"
-      traefik.docker.network: ${COMPOSE_PROJECT_NAME:-chat}_edge
-      traefik.http.routers.ws.rule: Host(`${APP_DOMAIN:-chat.example.com}`) && PathPrefix(`/ws`)
-      traefik.http.routers.ws.entrypoints: ${TRAEFIK_ROUTER_ENTRYPOINTS:-websecure}
-      traefik.http.routers.ws.tls: ${TRAEFIK_ROUTER_TLS:-true}
-      traefik.http.routers.ws.tls.certresolver: ${TRAEFIK_CERT_RESOLVER:-default}
-      traefik.http.routers.ws.priority: "110"
-      traefik.http.routers.ws.middlewares: secure-headers@file
-      traefik.http.services.ws.loadbalancer.server.port: ${WS_PORT:-8080}
+      - traefik.enable=true
+      - chat.stack=${COMPOSE_PROJECT_NAME:-chat}
+      - traefik.docker.network=${COMPOSE_PROJECT_NAME:-chat}_edge
+      - 'traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-ws.rule=Host(`${APP_DOMAIN:-chat.example.com}`) && PathPrefix(`/ws`)'
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-ws.entrypoints=${TRAEFIK_ROUTER_ENTRYPOINTS:-websecure}
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-ws.tls=${TRAEFIK_ROUTER_TLS:-true}
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-ws.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-default}
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-ws.priority=110
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-ws.middlewares=secure-headers@file
+      - traefik.http.services.${COMPOSE_PROJECT_NAME:-chat}-ws.loadbalancer.server.port=${WS_PORT:-8080}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${WS_PORT:-8080}/health >/dev/null 2>&1 || exit 1"]
       interval: 30s

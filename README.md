@@ -141,11 +141,12 @@ docker compose --env-file .env -f compose.yaml -f compose.dev.yaml config --quie
 Production uses `compose.yaml` without the development override:
 
 ```bash
-docker compose --env-file .env -f compose.yaml up --build -d
+cp .env.production.example .env.production
+# Replace every change-me value and configure the production hostname.
+docker compose --env-file .env.production -f compose.yaml up --build -d
 ```
 
-Before deployment, replace every development credential and configure at
-least:
+Configure at least:
 
 - `APP_DOMAIN`, `APP_URL`, and `APP_FRONTEND_URL`
 - `APP_KEY`
@@ -155,12 +156,12 @@ least:
 - `TRAEFIK_ACME_EMAIL`
 - OAuth client credentials when social login is enabled
 
-Compose rejects missing application, database, Redis, and RustFS/S3 secrets.
-It does not reject the local placeholder values from `.env.example`, so do not
-deploy using those values.
+Compose also rejects missing application, database, Redis, and RustFS/S3
+secrets.
 
 Traefik accesses Docker through an internal read-only API proxy. Do not expose
 the `docker-proxy` service or its port outside the private Compose network.
+Each Traefik instance only discovers containers from its own Compose project.
 
 ## License
 

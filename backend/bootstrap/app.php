@@ -12,7 +12,10 @@ $app = Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->throttleWithRedis()->statefulApi();
+        $middleware
+            ->trustProxies(at: 'REMOTE_ADDR')
+            ->throttleWithRedis()
+            ->statefulApi();
     })
     ->withCommands([
         __DIR__.'/../app/Console/Commands',
