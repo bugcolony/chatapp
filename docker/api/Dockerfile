@@ -26,6 +26,16 @@ RUN composer dump-autoload \
     --classmap-authoritative \
     --no-interaction
 
+FROM composer-deps AS composer-deps-dev
+
+RUN composer install \
+    --prefer-dist \
+    --no-interaction \
+    --no-progress \
+    --no-scripts \
+    --ignore-platform-req=ext-pcntl \
+    --optimize-autoloader
+
 FROM php:8.5-fpm-alpine AS api-php
 
 WORKDIR /var/www/html
@@ -71,7 +81,15 @@ RUN php artisan package:discover --ansi \
 ENTRYPOINT ["docker-entrypoint"]
 CMD ["php-fpm", "-F"]
 
-FROM api-php AS composer-dev
+FROM api-php AS api-php-dev
+
+COPY --from=composer-deps-dev /app/backend /var/www/html
+
+RUN php artisan package:discover --ansi \
+    && chmod -R a+rwX /var/www/html/vendor \
+    && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+
+FROM api-php-dev AS composer-dev
 
 COPY --from=composer-bin /usr/bin/composer /usr/bin/composer
 

@@ -38,6 +38,8 @@ services:
       traefik.http.services.frontend.loadbalancer.server.port: "3000"
 
   api-php:
+    build:
+      target: api-php-dev
     volumes:
       - ./backend:/var/www/html
       - backend_vendor:/var/www/html/vendor
@@ -54,18 +56,24 @@ services:
       traefik.http.routers.api.rule: PathPrefix(`/api`) || PathPrefix(`/auth`) || PathPrefix(`/sanctum`) || PathPrefix(`/${HORIZON_PATH:-horizon}`) || PathPrefix(`/${TELESCOPE_PATH:-telescope}`) || Path(`/up`)
 
   migrate:
+    build:
+      target: api-php-dev
     volumes:
       - ./backend:/var/www/html
       - backend_vendor:/var/www/html/vendor
     read_only: false
 
   horizon:
+    build:
+      target: api-php-dev
     volumes:
       - ./backend:/var/www/html
       - backend_vendor:/var/www/html/vendor
     read_only: false
 
   scheduler:
+    build:
+      target: api-php-dev
     volumes:
       - ./backend:/var/www/html
       - backend_vendor:/var/www/html/vendor
