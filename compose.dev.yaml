@@ -121,6 +121,13 @@ services:
       - ws_gocache:/go-cache
     read_only: false
     tmpfs: []
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${WS_PORT:-8080}/health >/dev/null 2>&1 || exit 1"]
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
     labels:
       - 'traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-ws.rule=PathPrefix(`/ws`)'
 
