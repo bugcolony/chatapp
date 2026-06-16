@@ -18,6 +18,15 @@ services:
     ports: !override
       - "80:80"
       - "127.0.0.1:${TRAEFIK_DASHBOARD_EXPOSE_PORT:-8080}:8080"
+    depends_on: !override
+      docker-proxy:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+      api-web:
+        condition: service_healthy
+      ws:
+        condition: service_healthy
 
   frontend:
     build:
@@ -35,6 +44,7 @@ services:
       NUXT_PUBLIC_APP_URL: ${NUXT_PUBLIC_APP_URL:-}
       NUXT_PUBLIC_WS_URL: ${NUXT_PUBLIC_WS_URL:-ws://localhost/ws}
       NUXT_AUTH_TIMEOUT: ${NUXT_AUTH_TIMEOUT:-10000}
+      NUXT_DEVTOOLS_ENABLED: ${NUXT_DEVTOOLS_ENABLED:-false}
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules
@@ -42,11 +52,8 @@ services:
     read_only: false
     tmpfs: []
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000 >/dev/null 2>&1 || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
+      disable: true
+    deploy: !reset null
     labels:
       - 'traefik.http.routers.${COMPOSE_PROJECT_NAME:-chat}-frontend.rule=PathPrefix(`/`)'
       - traefik.http.services.${COMPOSE_PROJECT_NAME:-chat}-frontend.loadbalancer.server.port=3000

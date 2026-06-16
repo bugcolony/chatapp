@@ -39,8 +39,22 @@ export default defineNuxtConfig({
 
   css: ["~/assets/css/main.css"],
 
+  vite: {
+    optimizeDeps: {
+      include: [
+        "@vue/devtools-core",
+        "@vue/devtools-kit",
+        "@vueuse/integrations/useNProgress",
+        "zod",
+      ],
+    },
+  },
+
   devtools: {
-    enabled: true,
+    // Devtools are expensive inside the Docker dev stack. Enable with
+    // NUXT_DEVTOOLS_ENABLED=true when needed.
+    // @ts-expect-error -- Node environment variables are available in Nuxt config.
+    enabled: process.env.NUXT_DEVTOOLS_ENABLED === "true",
 
     timeline: {
       enabled: true,
