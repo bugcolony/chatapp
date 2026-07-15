@@ -196,6 +196,16 @@ docker compose --env-file .env.production -f compose.yaml build --pull
 docker compose --env-file .env.production -f compose.yaml up -d --remove-orphans
 ```
 
+GitHub Actions validates pull requests and pushes to `main`. Production deploys
+only when a release tag matching `vMAJOR.MINOR.PATCH` is pushed:
+
+```bash
+git switch main
+git pull
+git tag -a v1.2.3 -m "Release v1.2.3"
+git push origin v1.2.3
+```
+
 Configure at least:
 
 - `APP_DOMAIN`, `APP_URL`, and `APP_FRONTEND_URL`
