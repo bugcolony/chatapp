@@ -16,10 +16,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -43,7 +43,7 @@ jobs:
           NUXT_AUTH_TIMEOUT: 10000
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: ws/go.mod
           cache-dependency-path: ws/go.sum
@@ -98,7 +98,7 @@ jobs:
 
       - name: Deploy on Droplet
         run: |
-          ssh -i ~/.ssh/do_deploy "${{ secrets.DO_USER }}@${{ secrets.DO_HOST }}" bash -s -- "${{ vars.APP_DIR }}" "${{ github.sha }}" <<'REMOTE'
+          ssh -i ~/.ssh/do_deploy -o IdentitiesOnly=yes "${{ secrets.DO_USER }}@${{ secrets.DO_HOST }}" bash -s -- "${{ vars.APP_DIR }}" "${{ github.sha }}" <<'REMOTE'
           set -euo pipefail
 
           APP_DIR="$1"
