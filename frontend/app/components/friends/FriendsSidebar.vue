@@ -1,8 +1,8 @@
 <script setup lang="js">
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
-import ChatSidebar from '~/components/chat/ChatSidebar.vue'
-import UserCard from '~/components/chat/UserCard.vue'
+import CurrentUserCard from '~/components/account/CurrentUserCard.vue'
+import AppSidebar from '~/components/layout/AppSidebar.vue'
 import { useChatUIStore } from '~/stores/chatUIStore.js'
 
 const store = useServerStore()
@@ -29,13 +29,13 @@ function avatarStyle(color) {
 </script>
 
 <template>
-  <ChatSidebar
+  <AppSidebar
     v-model:open="rightSidebarOpen"
     side="right"
     width="360px"
   >
     <aside class="flex h-full min-h-0 flex-col">
-      <UserCard />
+      <CurrentUserCard />
 
       <div class="min-h-0 flex-1 overflow-y-auto p-3 pt-2">
         <div class="mb-4 flex items-end justify-between gap-3">
@@ -91,5 +91,5 @@ function avatarStyle(color) {
         </div>
       </div>
     </aside>
-  </ChatSidebar>
+  </AppSidebar>
 </template>

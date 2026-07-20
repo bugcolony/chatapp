@@ -84,6 +84,8 @@ FROM api-php AS api-php-dev
 
 USER root
 
+COPY docker/api/php.dev.ini /usr/local/etc/php/conf.d/zz-dev.ini
+
 COPY --from=composer-deps-dev /app/backend /var/www/html
 
 RUN php artisan package:discover --ansi \

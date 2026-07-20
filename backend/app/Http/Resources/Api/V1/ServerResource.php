@@ -15,6 +15,7 @@ class ServerResource extends JsonResource
             'owner_id' => $this->user_id,
             'channels' => ChannelResource::collection($this->whenLoaded('channels')),
             'members' => MemberResource::collection($this->whenLoaded('members')),
+            'pin_position' => $this->pin_position
         ];
     }
 }

@@ -17,9 +17,17 @@ class ServerController extends Controller
     public function index()
     {
         try {
-            return auth()->user()->activeServers()->get()->toResourceCollection(ServerResource::class);
+            return auth()
+                ->user()
+                ->activeServers()
+                ->select([
+                    "servers.*",
+                    "members.pin_position as pin_position",
+                ])
+                ->get()
+                ->toResourceCollection(ServerResource::class);
         } catch (Throwable $e) {
-            Log::error($e->getMessage(), $e->getTrace());
+            Log::error($e->getMessage());
 
             return response()->json(['message' => $e->getMessage()], 500);
         }
@@ -38,7 +46,7 @@ class ServerController extends Controller
 
             return new ServerResource($server);
         } catch (\Exception $e) {
-            Log::error($e->getMessage(), $e->getTrace());
+            Log::error($e->getMessage());
 
             return response()->json(['message' => 'Not possible to create server at this time.'], 500);
         }

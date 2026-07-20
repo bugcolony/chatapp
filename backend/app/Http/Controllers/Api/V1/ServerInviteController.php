@@ -36,7 +36,7 @@ class ServerInviteController extends Controller
 
             throw new RuntimeException('Invite could not be created');
         } catch (Exception $e) {
-            Log::error($e->getMessage(), $e->getTrace());
+            Log::error($e->getMessage());
 
             return response()->json(['message' => 'Could not create invite at this time'], 500);
         }
@@ -56,7 +56,7 @@ class ServerInviteController extends Controller
 
             return new JoinServerWithInvite()->execute(auth()->user(), $invite)->toResource();
         } catch (Exception $e) {
-            Log::error($e->getMessage(), $e->getTrace());
+            Log::error($e->getMessage());
 
             return response()->json(['message' => 'Could not join server at this time'], 500);
         }

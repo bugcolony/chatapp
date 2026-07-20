@@ -1,13 +1,15 @@
 <script setup lang="js">
-import ChannelSidebar from '~/components/chat/ChannelSidebar.vue'
-import ChatWindow from '~/components/chat/ChatWindow.vue'
-import MembersSidebar from '~/components/chat/MembersSidebar.vue'
+import { computed } from 'vue'
+import MessageThread from '~/components/messages/MessageThread.vue'
+
+const route = useRoute()
+const channelId = computed(() => Number(route.params.channelId))
 </script>
 
 <template>
-  <div class="contents">
-    <ChannelSidebar />
-    <ChatWindow class="my-2 min-w-0 flex-1 self-stretch" />
-    <MembersSidebar />
-  </div>
+  <MessageThread
+    :key="channelId"
+    :channel-id="channelId"
+    class="my-2 min-w-0 flex-1 self-stretch"
+  />
 </template>

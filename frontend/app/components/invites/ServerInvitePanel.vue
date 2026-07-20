@@ -1,5 +1,5 @@
 <script setup lang="js">
-import InvalidInviteCard from "~/components/chat/InvalidInviteCard.vue";
+import InvalidInviteCard from "~/components/invites/InvalidInviteCard.vue";
 
 const emit = defineEmits(['joined'])
 

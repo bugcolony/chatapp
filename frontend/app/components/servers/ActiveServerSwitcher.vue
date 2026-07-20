@@ -1,14 +1,20 @@
 <script setup lang="js">
 import { ref, computed } from 'vue'
 import { storeToRefs } from 'pinia'
-import { LazyChatInviteModal, LazyChatLeaveServerModal } from '#components'
-import ServerListItem from '~/components/chat/ServerListItem.vue'
+import ServerListItem from '~/components/servers/ServerListItem.vue'
 import { serverAvatarSrc } from '~/composables/useServerAvatar.js'
+import { useCreateInviteModal } from '~/composables/useCreateInviteModal.js'
+import { useCreateCategoryModal } from '~/composables/useCreateCategoryModal.js'
+import { useCreateChannelModal } from '~/composables/useCreateChannelModal.js'
+import { useLeaveServerModal } from '~/composables/useLeaveServerModal.js'
 
 const store = useServerStore()
 const { reconnect } = useSocketStore()
 const { activeServerId, activeServer, pinnedServerIds, servers } = storeToRefs(store)
-const overlay = useOverlay()
+const { openCreateInviteModal } = useCreateInviteModal()
+const { openCreateCategoryModal } = useCreateCategoryModal()
+const { openCreateChannelModal } = useCreateChannelModal()
+const { openLeaveServerModal } = useLeaveServerModal()
 
 const open = ref(false)
 
@@ -20,49 +26,38 @@ const actionItems = computed(() => {
   const isPinned = pinnedServerIds.value.includes(activeServer.value.id)
 
   return [
-    [
-      {
-        label: isPinned ? 'Unpin server' : 'Pin server',
-        icon: isPinned ? 'i-lucide-pin-off' : 'i-lucide-pin',
-        onSelect: () => store.togglePinnedServer(activeServer.value.id),
-      },
-    ],
-    [
-      {
-        label: 'Create invite',
-        icon: 'i-lucide-user-plus',
-        onSelect: () => openInviteModal(activeServer.value.id),
-      },
-    ],
-    [
-      {
-        label: 'Leave server',
-        icon: 'i-lucide-log-out',
-        color: 'error',
-        onSelect: () => promptLeaveServer(activeServer.value.id),
-      },
-    ],
+    {
+      label: isPinned ? 'Unpin server' : 'Pin server',
+      icon: isPinned ? 'i-lucide-pin-off' : 'i-lucide-pin',
+      onSelect: () => store.togglePinnedServer(activeServer.value.id),
+    },
+    {
+      label: 'Create invite',
+      icon: 'i-lucide-user-plus',
+      onSelect: () => openCreateInviteModal(activeServer.value),
+    },
+    {
+      label: 'Create channel',
+      icon: 'i-lucide-message-circle-plus',
+      onSelect: () => openCreateChannelModal(activeServer.value),
+    },
+    {
+      label: 'Create category',
+      icon: 'i-lucide-list-plus',
+      onSelect: () => openCreateCategoryModal(activeServer.value),
+    },
+    {
+      label: 'Leave server',
+      icon: 'i-lucide-log-out',
+      color: 'error',
+      onSelect: () => promptLeaveServer(activeServer.value.id),
+    },
   ]
 })
 
 async function handleSelectServer(id) {
   open.value = false
   await navigateTo(`/app/servers/${id}`)
-}
-
-function openInviteModal(id) {
-  const server = servers.value.find((server) => server.id === id)
-
-  if (!server) {
-    return
-  }
-
-  const modal = overlay.create(LazyChatInviteModal, {
-    destroyOnClose: true,
-    props: { server },
-  })
-
-  modal.open()
 }
 
 async function promptLeaveServer(id) {
@@ -72,12 +67,7 @@ async function promptLeaveServer(id) {
     return
   }
 
-  const modal = overlay.create(LazyChatLeaveServerModal, {
-    destroyOnClose: true,
-    props: { server },
-  })
-
-  const confirmedServer = await modal.open()
+  const confirmedServer = await openLeaveServerModal(server)
 
   if (confirmedServer) {
     await handleLeaveServer(confirmedServer.id)

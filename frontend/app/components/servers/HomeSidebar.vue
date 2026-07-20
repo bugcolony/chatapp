@@ -1,8 +1,8 @@
 <script setup lang="js">
 import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import ChatSidebar from '~/components/chat/ChatSidebar.vue'
-import ServerListItem from '~/components/chat/ServerListItem.vue'
+import AppSidebar from '~/components/layout/AppSidebar.vue'
+import ServerListItem from '~/components/servers/ServerListItem.vue'
 import { useChatUIStore } from '~/stores/chatUIStore.js'
 
 const store = useServerStore()
@@ -24,7 +24,7 @@ function handleSelectServer(id) {
 </script>
 
 <template>
-  <ChatSidebar
+  <AppSidebar
     v-model:open="leftSidebarOpen"
     side="left"
     width="308px"
@@ -79,5 +79,5 @@ function handleSelectServer(id) {
         Start a conversation from the friends panel on the right.
       </p>
     </div>
-  </ChatSidebar>
+  </AppSidebar>
 </template>

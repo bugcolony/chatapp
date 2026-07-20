@@ -1,3 +1,5 @@
+import { useNotificationHub } from '~/composables/useNotificationHub.js'
+
 export const useSocketStore = defineStore('socket', () => {
     const reconnectBaseDelay = 1000
     const reconnectMaxDelay = 30000
@@ -5,6 +7,7 @@ export const useSocketStore = defineStore('socket', () => {
     const auth = useAuthStore()
     const serverStore = useServerStore()
     const { $apiFetch } = useNuxtApp()
+    const { play: playNotification } = useNotificationHub()
 
     let socketUrl
     let connectPromise = null
@@ -92,10 +95,26 @@ export const useSocketStore = defineStore('socket', () => {
                     return
                 }
 
-                if (serverStore.activeChannelId === operation.targetChannelId) {
-                    serverStore.appendMessageToChannel(operation.data, operation.data.id, operation.targetChannelId)
-                } else {
-                    serverStore.invalidateChannelState(operation.targetChannelId)
+                serverStore.upsertChannelMessage(operation.targetChannelId, operation.data)
+                playNotification()
+
+                // if (serverStore.activeChannelId === operation.targetChannelId) {
+                //     serverStore.appendMessageToChannel(operation.data, operation.data.id, operation.targetChannelId)
+                // } else {
+                //     serverStore.invalidateChannelState(operation.targetChannelId)
+                // }
+                break;
+            case 2:
+                serverStore.upsertServerChannel(operation.targetServerId, operation.data)
+                break;
+            case 3:
+                serverStore.upsertServerChannel(operation.targetServerId, operation.data)
+                break;
+            case 4:
+                serverStore.removeServerChannel(operation.targetServerId, operation.data.id)
+
+                if (serverStore.activeChannelId === operation.data.id) {
+                    void navigateTo(`/app/servers/${operation.targetServerId}`)
                 }
                 break;
             default:
