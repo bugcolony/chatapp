@@ -153,7 +153,7 @@ watchEffect(() => {
       </div>
     </template>
 
-    <div class="space-y-1 pr-1" ref="channelList">
+    <div ref="channelList" class="space-y-1 pr-1" >
       <ChannelListItem
         v-for="item in flatChannelList"
         :key="item.id"
