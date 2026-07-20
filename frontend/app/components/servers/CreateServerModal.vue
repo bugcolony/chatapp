@@ -1,4 +1,6 @@
 <script setup lang="js">
+import CreateServerForm from '~/components/servers/CreateServerForm.vue'
+
 const open = defineModel('open', { type: Boolean, default: false })
 </script>
 

@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Api\V1\Channel;
 
+use App\Enums\ChannelType;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreChannelRequest extends FormRequest
 {
@@ -15,6 +17,8 @@ class StoreChannelRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:100'],
+            'type' => ['required', 'string', Rule::enum(ChannelType::class)],
+            'parent_id' => ['nullable', 'integer', 'exists:channels,id'],
         ];
     }
 }

@@ -45,11 +45,11 @@ export default defineNuxtConfig({
         "@vue/devtools-core",
         "@vue/devtools-kit",
         "@vueuse/integrations/useNProgress",
+        "@vueuse/integrations/useSortable",
         "zod",
       ],
     },
   },
-
   devtools: {
     // Devtools are expensive inside the Docker dev stack. Enable with
     // NUXT_DEVTOOLS_ENABLED=true when needed.

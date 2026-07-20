@@ -1,7 +1,7 @@
 <script setup lang="js">
 import { fallbackAvatarSrc } from '~/composables/useServerAvatar.js'
 import { extractInviteCodes } from '~/utils/extractInviteCodes.js'
-import ServerInviteEmbed from '~/components/chat/ServerInviteEmbed.vue'
+import ServerInvitePreview from '~/components/invites/ServerInvitePreview.vue'
 import {useAppUrl} from "~/composables/useAppUrl.js";
 
 const props = defineProps({
@@ -41,7 +41,7 @@ const inviteCodes = computed(() => extractInviteCodes(props.message.message, app
           {{ message.message }}
         </p>
 
-        <ServerInviteEmbed
+        <ServerInvitePreview
           v-for="code in inviteCodes"
           :key="code"
           :code="code"

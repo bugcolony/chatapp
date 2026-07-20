@@ -9,11 +9,11 @@ export const useServerStore = defineStore('server', {
         channelMeta: new Map(),
         channelsLoading: new Set(),
         friends: [],
-        pinnedServerIds: []
     }),
     getters: {
         activeServer: (state) => state.servers.find((s) => s.id === state.activeServerId) ?? null,
         serverIds: (state) => state.servers.map((s) => s.id),
+        pinnedServerIds: (state) => state.servers.filter((s) => s.pin_position).map((el) => el.id) ?? []
     },
     actions: {
         async fetchServers() {
@@ -118,8 +118,62 @@ export const useServerStore = defineStore('server', {
             }
         },
 
+        upsertChannelMessage(channelId, message) {
+            const newMessage = isReactive(message) ? message : reactive(message);
+
+            if (this.channelMessages.has(channelId)) {
+                if (!this.channelMessages.get(channelId).has(message.id)) {
+                    this.channelMessages.get(channelId).set(message.id, newMessage)
+                }
+            }
+        },
+
+        upsertServerChannel(serverId, channel) {
+            if (!channel?.id) {
+                return;
+            }
+
+            const channels = this.serverChannels[serverId] ?? [];
+
+            if (!this.serverChannels[serverId]) {
+                this.serverChannels[serverId] = channels;
+            }
+
+            const index = channels.findIndex(item => item.id === channel.id);
+
+            if (index === -1) {
+                channels.push(channel);
+            } else {
+                channels[index] = {...channels[index], ...channel};
+            }
+        },
+
+        removeServerChannel(serverId, channelId) {
+            const channels = this.serverChannels[serverId] ?? [];
+
+            this.serverChannels[serverId] = channels
+                .filter(channel => channel.id !== channelId)
+                .map(channel => channel.parent_id === channelId
+                    ? {...channel, parent_id: null}
+                    : channel);
+
+            this.invalidateChannelState(channelId);
+        },
+
+        async deleteServerChannel(serverId, channelId) {
+            const {$apiFetch} = useNuxtApp();
+
+            await $apiFetch(`/channels/${channelId}`, {
+                method: 'DELETE',
+            });
+
+            this.removeServerChannel(serverId, channelId);
+        },
+
         invalidateChannelState(channelId) {
             this.channelMessages.delete(channelId);
+            this.channelMeta.delete(channelId);
+            this.channelsLoading.delete(channelId);
         },
 
         sendMessage(message) {
@@ -160,13 +214,34 @@ export const useServerStore = defineStore('server', {
             })
         },
 
-        togglePinnedServer(id) {
-            const index = this.pinnedServerIds.indexOf(id);
+        async togglePinnedServer(id) {
+            const payload = this.pinnedServerIds.slice()
+            const index = payload.indexOf(id);
+            const added = index === -1
 
-            if (index === -1) {
-                this.pinnedServerIds.push(id);
+            if (added) {
+                payload.push(id);
             } else {
-                this.pinnedServerIds.splice(index, 1);
+                payload.splice(index, 1);
+            }
+
+            try {
+                const {$apiFetch} = useNuxtApp();
+
+                await $apiFetch('me/preferences/pinned-servers', {
+                    method: 'POST',
+                    body: {
+                        server_ids: payload
+                    }
+                })
+
+                const s = this.servers.find((el) => el.id === id)
+
+                if (s) {
+                    s.pin_position = added ? 1 : null
+                }
+            } catch (e) {
+                console.error(e)
             }
         },
 

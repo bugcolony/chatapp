@@ -1,5 +1,5 @@
 <script setup lang="js">
-import ServerInvitePanel from "~/components/ServerInvitePanel.vue";
+import ServerInvitePanel from "~/components/invites/ServerInvitePanel.vue";
 
 const open = defineModel('open', { type: Boolean, default: false })
 const emit = defineEmits(['after:leave'])

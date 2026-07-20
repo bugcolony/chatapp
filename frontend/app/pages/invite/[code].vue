@@ -1,5 +1,5 @@
 <script setup lang="js">
-import ServerInvitePanel from "~/components/ServerInvitePanel.vue";
+import ServerInvitePanel from "~/components/invites/ServerInvitePanel.vue";
 import {usePendingInvite} from "~/composables/usePendingInvite.js";
 import {until} from "@vueuse/core";
 

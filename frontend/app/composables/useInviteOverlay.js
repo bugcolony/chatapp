@@ -1,4 +1,4 @@
-import ServerInviteModal from '~/components/ServerInviteModal.vue'
+import ServerInviteModal from '~/components/invites/ServerInviteModal.vue'
 
 let inviteModal
 

@@ -1,5 +1,6 @@
 <script setup lang="js">
 import { until } from "@vueuse/core";
+import LoadingScreen from "~/components/loading/LoadingScreen.vue";
 
 definePageMeta({
   layout: "naked",
@@ -25,7 +26,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppLoadingScreen panel-class="max-w-lg">
+  <LoadingScreen panel-class="max-w-lg">
     <template #icon>
       <div
         class="flex h-14 w-14 items-center justify-center rounded-2xl"
@@ -73,5 +74,5 @@ onMounted(() => {
         to="/login"
       />
     </template>
-  </AppLoadingScreen>
+  </LoadingScreen>
 </template>

@@ -3,6 +3,8 @@ import {until} from '@vueuse/core';
 import {useSocketStore} from "~/stores/socketStore.js";
 import {usePendingInvite} from "~/composables/usePendingInvite.js";
 import {useInviteOverlay} from "~/composables/useInviteOverlay.js";
+import { useNotificationHub } from '~/composables/useNotificationHub.js'
+import notificationSound from '~/assets/sounds/notif.mp3'
 
 definePageMeta({
   middleware: ['auth'],
@@ -16,6 +18,8 @@ const auth = useAuthStore()
 const {connect, disconnect} = useSocketStore()
 const {openInvite} = useInviteOverlay()
 const {code, clear} = usePendingInvite()
+const notificationAudio = ref(null)
+const {register: registerNotificationPlayer} = useNotificationHub()
 
 const routeServerId = computed(() =>
     route.params.serverId ? Number(route.params.serverId) : null,
@@ -30,6 +34,13 @@ watchEffect(() => {
 })
 
 onMounted(async () => {
+  registerNotificationPlayer(() => {
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return
+
+    notificationAudio.value.currentTime = 0
+    void notificationAudio.value.play().catch(() => {})
+  })
+
   await until(() => auth.isResolved).toBe(true)
 
   if (!auth.isAuthenticated) {
@@ -44,7 +55,10 @@ onMounted(async () => {
   handlePendingInvite()
 })
 
-onUnmounted(disconnect)
+onUnmounted(() => {
+  registerNotificationPlayer(null)
+  disconnect()
+})
 
 function handlePendingInvite() {
   if (code.value) {
@@ -57,6 +71,7 @@ function handlePendingInvite() {
 
 <template>
   <div class="chat-dashboard relative min-h-screen overflow-hidden bg-[#0b1114] text-slate-100 h-screen">
+    <audio ref="notificationAudio" :src="notificationSound" preload="auto" />
     <div class="relative flex min-h-screen h-full">
       <NuxtPage/>
     </div>

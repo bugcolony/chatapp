@@ -55,6 +55,15 @@ Example message event:
 
 Operation `1` is `MESSAGE_CREATED`.
 
+Channel creation uses operation `2` (`CHANNEL_CREATED`) with the new channel in
+`data`. The gateway applies the same `targetServerId` routing, so every connected
+member of that server receives the update, including the creator.
+
+Channel updates use operation `3` (`CHANNEL_UPDATED`) with the full authoritative
+channel resource in `data`. Channel deletions use operation `4`
+(`CHANNEL_DELETED`) with the deleted channel ID and type in `data`. Both operations
+are routed to every connected member of the target server.
+
 ## Configuration
 
 | Variable | Default | Purpose |
@@ -68,9 +77,9 @@ Operation `1` is `MESSAGE_CREATED`.
 | `REDIS_CHANNEL` | `messages.created` | Pub/Sub channel |
 
 Docker maps these values from the root `.env` and connects the service only to
-the edge and real-time networks. Laravel currently publishes message events to
-the hard-coded `messages.created` channel, so keep `REDIS_CHANNEL` at that value
-unless the backend publisher is updated at the same time.
+the edge and real-time networks. Laravel currently publishes real-time events to
+the legacy hard-coded `messages.created` channel, so keep `REDIS_CHANNEL` at that
+value unless all backend publishers are updated at the same time.
 
 ## Development
 

@@ -19,7 +19,7 @@ class MemberController extends Controller
         try {
             return $server->members()->with('user')->get()->toResourceCollection(MemberResource::class);
         } catch (Throwable $th) {
-            Log::error($th->getMessage(), $th->getTrace());
+            Log::error($th->getMessage());
 
             return response()->json(['error' => 'Server not found'], 404);
         }

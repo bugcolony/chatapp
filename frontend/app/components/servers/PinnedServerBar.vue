@@ -1,8 +1,8 @@
 <script setup lang="js">
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
-import ServerListItem from '~/components/chat/ServerListItem.vue'
-import CreateServerModal from "~/components/CreateServerModal.vue";
+import CreateServerModal from "~/components/servers/CreateServerModal.vue";
+import ServerListItem from '~/components/servers/ServerListItem.vue'
 import { useChatUIStore } from '~/stores/chatUIStore.js'
 
 const store = useServerStore()
