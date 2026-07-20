@@ -20,12 +20,14 @@ const fields = ref([
 		name: "email",
 		type: "text",
 		label: "Email",
+    defaultValue: "example1@example.com",
 		required: true,
 	},
 	{
 		name: "password",
 		type: "password",
 		label: "Password",
+    defaultValue: "password",
 		required: true,
 	},
 ]);
@@ -40,6 +42,7 @@ const redirectToOAuthProvider = async (provider) => {
 		external: true,
 	});
 };
+
 
 const providers = ref([
 	{
@@ -123,6 +126,18 @@ async function onSubmit(payload) {
 			>
         <template #separator>
           <span/>
+        </template>
+        <template #email-hint>
+          <UPopover :content="{side: 'top'}">
+            <UIcon name="i-lucide-info" />
+
+            <template #content>
+              <div class="p-3 max-w-80">
+                <span class="text-sm">Feel free to use demo users with credentials: <i>example[1-10]@example.com; password.</i> e.g. <i>example1@example.com; password</i></span>
+              </div>
+            </template>
+          </UPopover>
+
         </template>
       </UAuthForm>
 		</div>

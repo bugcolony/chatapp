@@ -114,6 +114,28 @@ docker compose --env-file .env -f compose.yaml -f compose.dev.yaml exec api-php 
 also creates sample users, servers, channels, members, and messages. Factory
 users use `password`.
 
+For a predictable demo dataset that is also compatible with the production
+image, use the dedicated lifecycle commands:
+
+```bash
+php artisan demo:provision
+php artisan demo:reset
+php artisan demo:remove
+```
+
+`demo:provision` may be run repeatedly and creates or reconciles the canonical
+fixtures without deleting additional activity. `demo:reset` removes all
+activity associated with the demo users before recreating the canonical
+dataset. `demo:remove` removes the demo users and their related data without
+recreating them. The same provisioning operation is available through
+`php artisan db:seed --class=DemoFixturesSeeder --force`.
+
+The dataset contains three servers with categorized text and voice channels,
+plus ten verified users. Every user is an active member of every server, and
+`example1@example.com` owns all three. Login emails range from
+`example1@example.com` through `example10@example.com`; every account uses
+`password`.
+
 ## Real-Time Flow
 
 1. An authenticated client requests `POST /api/v1/ws/ticket`.
