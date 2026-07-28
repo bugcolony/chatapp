@@ -16,6 +16,8 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -129,23 +131,27 @@ class DemoFixtureManager
     public function reset(): void
     {
         $this->withLifecycleLock(function (): void {
-            Model::withoutEvents(function (): void {
-                DB::transaction(function (): void {
-                    $this->removeFixtures();
+            $attachments = Model::withoutEvents(function (): array {
+                return DB::transaction(function (): array {
+                    $attachments = $this->removeFixtures();
                     $this->provisionFixtures();
+
+                    return $attachments;
                 });
             });
 
             $this->forgetPermissionCache();
+            $this->deleteAttachmentFiles($attachments);
         });
     }
 
     public function remove(): void
     {
         $this->withLifecycleLock(function (): void {
-            DB::transaction(fn () => $this->removeFixtures());
+            $attachments = DB::transaction(fn (): array => $this->removeFixtures());
 
             $this->forgetPermissionCache();
+            $this->deleteAttachmentFiles($attachments);
         });
     }
 
@@ -220,7 +226,7 @@ class DemoFixtureManager
                     'user_id' => $user->id,
                     'server_id' => $server->id,
                 ], [
-                    'nickname' => null,
+                    'nickname' => $user->name,
                     'left_at' => null,
                     'pin_position' => $serverPosition,
                 ]);
@@ -287,7 +293,10 @@ class DemoFixtureManager
         }
     }
 
-    private function removeFixtures(): void
+    /**
+     * @return array<int, array{disk: string, path: string}>
+     */
+    private function removeFixtures(): array
     {
         $emails = array_column(self::USERS, 'email');
         $userIds = DB::table('users')
@@ -300,7 +309,7 @@ class DemoFixtureManager
         DB::table('password_reset_tokens')->whereIn('email', $emails)->delete();
 
         if ($userIds === []) {
-            return;
+            return [];
         }
 
         $serverIds = DB::table('servers')
@@ -323,6 +332,27 @@ class DemoFixtureManager
                 ->pluck('id')
                 ->map(static fn (int|string $id): int => (int) $id)
                 ->all();
+        $attachments = DB::table('message_attachments')
+            ->join('messages', 'messages.id', '=', 'message_attachments.message_id')
+            ->where(function (Builder $query) use ($serverIds, $channelIds, $userIds): void {
+                $query->whereIn('messages.user_id', $userIds);
+
+                if ($serverIds !== []) {
+                    $query->orWhereIn('messages.server_id', $serverIds);
+                }
+
+                if ($channelIds !== []) {
+                    $query->orWhereIn('messages.channel_id', $channelIds);
+                }
+            })
+            ->select(['message_attachments.disk', 'message_attachments.path'])
+            ->lockForUpdate()
+            ->get()
+            ->map(static fn (object $attachment): array => [
+                'disk' => (string) $attachment->disk,
+                'path' => (string) $attachment->path,
+            ])
+            ->all();
 
         if ($serverIds !== [] || $serverRoleIds !== []) {
             DB::table('servers')
@@ -396,6 +426,22 @@ class DemoFixtureManager
         }
 
         DB::table('users')->whereIn('id', $userIds)->delete();
+
+        return $attachments;
+    }
+
+    /**
+     * @param  array<int, array{disk: string, path: string}>  $attachments
+     */
+    private function deleteAttachmentFiles(array $attachments): void
+    {
+        foreach (collect($attachments)->groupBy('disk') as $disk => $files) {
+            $paths = $files->pluck('path')->all();
+
+            if (! Storage::disk($disk)->delete($paths)) {
+                throw new RuntimeException("Unable to delete demo attachment files from disk [{$disk}].");
+            }
+        }
     }
 
     /**

@@ -16,6 +16,7 @@ const props = defineProps({
 const channelId = props.channelId
 const store = useServerStore()
 const {channelMessages, channelMeta, channelsLoading} = storeToRefs(store)
+const toast = useToast()
 
 const activeMessageBucket = computed(() => channelMessages.value.get(channelId) ?? null)
 const hasMore = computed(() => channelMeta.value.get(channelId)?.has_more_pages ?? false)
@@ -61,9 +62,21 @@ function scrollToBottom() {
   // smooth.value = true
 }
 
-function handleSend() {
-  store.sendMessage(draft.value)
+async function handleSend(payload) {
   draft.value = ''
+
+  try {
+    await store.sendMessage(payload)
+  } catch (err) {
+    if (!payload?.attachment) return
+
+    toast.add({
+      title: 'Attachment upload failed',
+      description: err?.data?.message ?? 'The file could not be uploaded. Try again.',
+      icon: 'i-lucide-cloud-off',
+      color: 'error',
+    })
+  }
 }
 
 async function prependHistory() {

@@ -15,6 +15,7 @@ use Database\Seeders\DemoFixturesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -45,6 +46,22 @@ function demoFixtureCategoryCount(): int
         )),
         DemoFixtureManager::SERVERS,
     ));
+}
+
+function addDemoFixtureAttachment(
+    Message $message,
+    string $disk,
+    string $path,
+    string $contents = 'demo attachment',
+): void {
+    Storage::disk($disk)->put($path, $contents);
+    $message->attachment()->create([
+        'disk' => $disk,
+        'path' => $path,
+        'original_name' => basename($path),
+        'mime_type' => 'application/octet-stream',
+        'size' => strlen($contents),
+    ]);
 }
 
 test('demo fixtures can be provisioned repeatedly', function () {
@@ -114,6 +131,7 @@ test('demo fixtures can be provisioned repeatedly', function () {
 });
 
 test('demo fixtures can be reset to their canonical state', function () {
+    Storage::fake('local');
     $this->artisan('demo:provision')->assertSuccessful();
 
     $unrelatedUser = User::factory()->create();
@@ -126,6 +144,8 @@ test('demo fixtures can be reset to their canonical state', function () {
         ->where('name', 'lfg')
         ->firstOrFail();
     $deletedMessage = Message::query()->where('server_id', $gamingServer->id)->firstOrFail();
+    $attachmentPath = 'message-attachments/demo/reset.bin';
+    addDemoFixtureAttachment($deletedMessage, 'local', $attachmentPath);
 
     $owner->update(['name' => 'Changed Owner', 'password' => 'changed-password']);
     Member::query()
@@ -156,14 +176,20 @@ test('demo fixtures can be reset to their canonical state', function () {
         ->and(Server::query()->where('name', 'Temporary Demo Server')->exists())->toBeFalse()
         ->and($unrelatedUser->fresh())->not->toBeNull()
         ->and($unrelatedServer->fresh())->not->toBeNull();
+    Storage::disk('local')->assertMissing($attachmentPath);
 });
 
 test('demo fixtures and demo user activity can be removed', function () {
+    Storage::fake('local');
+    Storage::fake('public');
     $this->artisan('demo:provision')->assertSuccessful();
 
     $demoUser = User::query()->where('email', 'example2@example.com')->firstOrFail();
     $demoUserIds = User::query()->whereIn('email', demoFixtureEmails())->pluck('id')->all();
     $demoServerIds = Server::query()->whereIn('user_id', $demoUserIds)->pluck('id')->all();
+    $demoServerMessage = Message::query()->whereIn('server_id', $demoServerIds)->firstOrFail();
+    $demoServerAttachmentPath = 'message-attachments/demo/server.bin';
+    addDemoFixtureAttachment($demoServerMessage, 'local', $demoServerAttachmentPath);
     $unrelatedUser = User::factory()->create();
     $unrelatedServer = Server::factory()->for($unrelatedUser, 'owner')->create();
     $unrelatedRole = ServerRole::query()->create([
@@ -176,6 +202,11 @@ test('demo fixtures and demo user activity can be removed', function () {
     $unrelatedChannel = Channel::factory()->for($unrelatedServer)->create();
     $membership = Member::factory()->for($demoUser)->for($unrelatedServer)->create();
     $message = Message::factory()->inChannel($unrelatedChannel)->from($demoUser)->create();
+    $demoAttachmentPath = 'message-attachments/demo/remove.bin';
+    addDemoFixtureAttachment($message, 'public', $demoAttachmentPath);
+    $unrelatedMessage = Message::factory()->inChannel($unrelatedChannel)->from($unrelatedUser)->create();
+    $unrelatedAttachmentPath = 'message-attachments/unrelated/keep.bin';
+    addDemoFixtureAttachment($unrelatedMessage, 'public', $unrelatedAttachmentPath);
     $invite = ServerInvite::query()->create([
         'server_id' => $unrelatedServer->id,
         'channel_id' => $unrelatedChannel->id,
@@ -218,5 +249,10 @@ test('demo fixtures and demo user activity can be removed', function () {
         ->and(DB::table('personal_access_tokens')->where('id', $tokenId)->exists())->toBeFalse()
         ->and(DB::table('password_reset_tokens')->where('email', $demoUser->email)->exists())->toBeFalse()
         ->and(DB::table('server_role_user')->where('user_id', $demoUser->id)->exists())->toBeFalse()
-        ->and(DB::table('model_has_roles')->whereIn('model_id', $demoUserIds)->exists())->toBeFalse();
+        ->and(DB::table('model_has_roles')->whereIn('model_id', $demoUserIds)->exists())->toBeFalse()
+        ->and($unrelatedMessage->fresh())->not->toBeNull()
+        ->and($unrelatedMessage->attachment()->exists())->toBeTrue();
+    Storage::disk('local')->assertMissing($demoServerAttachmentPath);
+    Storage::disk('public')->assertMissing($demoAttachmentPath);
+    Storage::disk('public')->assertExists($unrelatedAttachmentPath);
 });

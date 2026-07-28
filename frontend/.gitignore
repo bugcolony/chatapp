@@ -21,6 +21,7 @@ logs
 .codex
 .vscode
 _dev
+.reference
 
 # Local env files
 .env

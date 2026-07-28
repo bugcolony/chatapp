@@ -97,6 +97,12 @@ function handlePendingInvite() {
   min-height: 0;
 }
 
+.chat-panel,
+.chat-panel * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.22) transparent;
+}
+
 .chat-panel ::-webkit-scrollbar {
   width: 8px;
 }

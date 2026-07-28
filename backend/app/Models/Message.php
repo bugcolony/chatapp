@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Attributes\UseResourceCollection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[UseResource(MessageResource::class)]
@@ -21,6 +23,11 @@ class Message extends Model
     use SoftDeletes;
 
     protected $guarded = [];
+
+    public function attachment(): HasOne
+    {
+        return $this->hasOne(MessageAttachment::class);
+    }
 
     public function author(): BelongsTo
     {
@@ -35,5 +42,10 @@ class Message extends Model
     public function channel(): BelongsTo
     {
         return $this->belongsTo(Channel::class);
+    }
+
+    public function mentions(): HasMany
+    {
+        return $this->hasMany(MessageMention::class);
     }
 }

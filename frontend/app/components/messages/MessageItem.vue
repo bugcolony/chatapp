@@ -1,8 +1,16 @@
 <script setup lang="js">
-import { fallbackAvatarSrc } from '~/composables/useServerAvatar.js'
-import { extractInviteCodes } from '~/utils/extractInviteCodes.js'
+/* eslint-disable vue/no-v-html -- Rendered Markdown is sanitized with DOMPurify. */
+import DOMPurify from 'dompurify'
+import emojiRegex from 'emoji-regex'
+import MarkdownIt from 'markdown-it'
 import ServerInvitePreview from '~/components/invites/ServerInvitePreview.vue'
-import {useAppUrl} from "~/composables/useAppUrl.js";
+import MessageAttachment from '~/components/messages/MessageAttachment.vue'
+import { fallbackAvatarSrc } from '~/composables/useServerAvatar.js'
+import { useAppUrl } from '~/composables/useAppUrl.js'
+import { extractInviteCodes } from '~/utils/extractInviteCodes.js'
+import { installMessageMentionMarkdown } from '~/utils/messageMention.js'
+
+const JUMBO_EMOJI_LIMIT = 27
 
 const props = defineProps({
   message: {
@@ -10,10 +18,67 @@ const props = defineProps({
     required: true,
   },
 })
-
 const created = useDateFormat(props.message.created_at, 'DD.MM.YYYY HH:mm')
 const { appUrl } = useAppUrl()
-const inviteCodes = computed(() => extractInviteCodes(props.message.message, appUrl))
+const messageContent = computed(() => String(props.message.message ?? ''))
+const inviteCodes = computed(() => extractInviteCodes(messageContent.value, appUrl))
+const emojiOnlyCount = computed(() => countEmojiOnlyMessage(props.message.message))
+const isJumboEmojiMessage = computed(() => emojiOnlyCount.value > 0)
+const sanitizedContent = computed(() =>
+  DOMPurify.sanitize(renderMessageContent(messageContent.value)),
+)
+const store = useServerStore()
+const { activeServerId, serverMembers } = storeToRefs(store)
+const mentionLabels = computed(() => new Map(
+  (serverMembers.value[activeServerId.value] ?? []).map(member => [
+    String(member.user.id),
+    member.display_name,
+  ]),
+))
+
+function resolveMentionLabel(id) {
+  return mentionLabels.value.get(String(id)) ?? null
+}
+
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  breaks: true,
+})
+
+installMessageMentionMarkdown(md, resolveMentionLabel)
+
+md.renderer.rules.text = (tokens, index) => {
+  const text = md.utils.escapeHtml(tokens[index].content)
+
+  return text.replace(
+    emojiRegex(),
+    nativeEmoji => `<span class="rendered-emoji">${nativeEmoji}</span>`,
+  )
+}
+
+function renderMessageContent(content) {
+  const rendered = md.render(content)
+  const visibleText = rendered.replace(/<[^>]*>/g, '').trim()
+
+  return content.trim() && !visibleText
+    ? md.renderInline(content)
+    : rendered
+}
+
+function countEmojiOnlyMessage(content) {
+  const text = String(content ?? '').trim()
+  if (!text) return 0
+
+  const matches = text.match(emojiRegex()) ?? []
+  if (!matches.length || matches.length > JUMBO_EMOJI_LIMIT) return 0
+
+  const nonEmojiContent = text
+    .replace(emojiRegex(), '')
+    .replace(/\s/g, '')
+
+  return nonEmojiContent ? 0 : matches.length
+}
 </script>
 
 <template>
@@ -37,9 +102,17 @@ const inviteCodes = computed(() => extractInviteCodes(props.message.message, app
           <span class="text-xs text-slate-500">{{ created }}</span>
         </div>
 
-        <p class="mt-1.5 max-w-4xl whitespace-pre-wrap text-sm leading-6" :class="message.status === 'pending' || message.status === 'failed' ? 'text-slate-600' : 'text-slate-200'">
-          {{ message.message }}
-        </p>
+        <div
+          v-if="sanitizedContent"
+          class="message-content mt-1.5 max-w-4xl text-sm leading-5 wrap-break-word"
+          :class="[
+            message.status === 'pending' || message.status === 'failed'
+              ? 'text-slate-600'
+              : 'text-slate-200',
+            { 'message-content--jumbo': isJumboEmojiMessage },
+          ]"
+          v-html="sanitizedContent"
+        />
 
         <ServerInvitePreview
           v-for="code in inviteCodes"
@@ -47,21 +120,7 @@ const inviteCodes = computed(() => extractInviteCodes(props.message.message, app
           :code="code"
         />
 
-        <UButton
-          v-if="message.attachment"
-          color="neutral"
-          variant="ghost"
-          class="mt-2 flex max-w-sm items-center gap-2.5 rounded-2xl border border-white/8 bg-white/6 px-3 py-2 text-left transition hover:bg-white/10"
-          :ui="{ base: 'justify-start' }"
-        >
-          <span class="grid size-8 place-items-center rounded-xl bg-cyan-300/15 text-cyan-200">
-            <UIcon name="i-lucide-paperclip" class="size-4" />
-          </span>
-          <span>
-            <span class="block text-sm font-bold text-white">{{ message.attachment }}</span>
-            <span class="block text-xs text-slate-500">Shared file</span>
-          </span>
-        </UButton>
+        <MessageAttachment :attachment="message.attachment" />
 
         <div v-if="message.reactions?.length" class="mt-2 flex flex-wrap gap-1.5">
           <UButton
@@ -88,3 +147,35 @@ const inviteCodes = computed(() => extractInviteCodes(props.message.message, app
     </div>
   </article>
 </template>
+
+<style scoped>
+.message-content :deep(.rendered-emoji) {
+  display: inline-block;
+  font-size: 1.5em;
+  vertical-align: -0.1em;
+}
+
+.message-content :deep(.message-mention) {
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, var(--ui-primary) 18%, transparent);
+  padding: 2px 6px;
+  color: var(--ui-primary);
+  font-weight: 600;
+}
+
+.message-content--jumbo {
+  line-height: 1.2;
+}
+
+.message-content--jumbo :deep(.rendered-emoji) {
+  margin: 0 0.025em 0.08em 0;
+  font-size: 2.5rem;
+  vertical-align: middle;
+}
+
+@media (max-width: 640px) {
+  .message-content--jumbo :deep(.rendered-emoji) {
+    font-size: 2.25rem;
+  }
+}
+</style>

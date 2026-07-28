@@ -26,3 +26,27 @@ test('a newly created message may include its submitted client id', function () 
 
     expect($data['client_id'])->toBe(123);
 });
+
+test('message attachments include persisted metadata and a protected url', function () {
+    $author = User::factory()->create();
+    $message = Message::factory()->from($author)->create();
+
+    $message->attachment()->create([
+        'disk' => 'local',
+        'path' => 'message-attachments/photo.jpg',
+        'original_name' => 'photo.jpg',
+        'mime_type' => 'image/jpeg',
+        'size' => 2048,
+    ]);
+    $message->load(['attachment', 'author']);
+
+    $data = (new MessageResource($message))->response()->getData(true)['data'];
+
+    expect($data['attachment'])->toBe([
+        'name' => 'photo.jpg',
+        'size' => 2048,
+        'mime_type' => 'image/jpeg',
+        'is_image' => true,
+        'url' => "/api/v1/messages/{$message->id}/attachment",
+    ]);
+});

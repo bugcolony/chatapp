@@ -22,8 +22,10 @@ class MessageResource extends JsonResource
             'id' => $this->id,
             'mine' => $this->user_id === auth()->id(),
             'author' => $this->author->name,
+            'mentions' => MessageMentionResource::collection($this->whenLoaded('mentions')),
             'created_at' => $this->created_at,
             'message' => $this->content,
+            'attachment' => MessageAttachmentResource::make($this->whenLoaded('attachment')),
             'client_id' => $this->clientId,
         ];
     }

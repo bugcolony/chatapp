@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ChannelController;
 use App\Http\Controllers\Api\V1\MemberController;
+use App\Http\Controllers\Api\V1\MessageAttachmentController;
 use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\PreferenceController;
 use App\Http\Controllers\Api\V1\ServerController;
@@ -52,6 +53,9 @@ Route::group(['middleware' => 'auth:sanctum'], static function () {
             Route::post('/messages', [MessageController::class, 'store']);
         });
     });
+
+    Route::get('/messages/{message}/attachment', MessageAttachmentController::class)
+        ->name('messages.attachment');
 
     Route::prefix('invites')->group(static function () {
         Route::post('{code}/join', [ServerInviteController::class, 'join']);
