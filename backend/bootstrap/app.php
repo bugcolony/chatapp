@@ -1,8 +1,11 @@
 <?php
 
+use App\Exceptions\MessageAttachmentStorageException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 $app = Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -15,13 +18,28 @@ $app = Application::configure(basePath: dirname(__DIR__))
         $middleware
             ->trustProxies(at: 'REMOTE_ADDR')
             ->throttleWithRedis()
-            ->statefulApi();
+            ->statefulApi()
+            ->redirectGuestsTo(null);
     })
     ->withCommands([
         __DIR__.'/../app/Console/Commands',
     ])
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->shouldRenderJsonWhen(
+            fn (Request $request): bool => $request->is('api/*') || $request->expectsJson(),
+        );
+
+        $exceptions->render(
+            function (MessageAttachmentStorageException $exception, Request $request) {
+                if (! $request->expectsJson()) {
+                    return null;
+                }
+
+                return response()->json([
+                    'message' => 'Attachment storage is temporarily unavailable.',
+                ], Response::HTTP_SERVICE_UNAVAILABLE);
+            },
+        );
     })->create();
 
 $app->useEnvironmentPath('/dev')->loadEnvironmentFrom('null');

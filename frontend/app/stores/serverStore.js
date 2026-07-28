@@ -1,3 +1,8 @@
+import {
+    createLocalMessageAttachment,
+    revokeLocalMessageAttachment,
+} from '~/utils/messageAttachment.js'
+
 export const useServerStore = defineStore('server', {
     state: () => ({
         activeServerId: null,
@@ -171,20 +176,32 @@ export const useServerStore = defineStore('server', {
         },
 
         invalidateChannelState(channelId) {
+            for (const message of this.channelMessages.get(channelId)?.values() ?? []) {
+                revokeLocalMessageAttachment(message.attachment)
+            }
+
             this.channelMessages.delete(channelId);
             this.channelMeta.delete(channelId);
             this.channelsLoading.delete(channelId);
         },
 
-        sendMessage(message) {
-            if (message.trim() === '') {
+        sendMessage(payload) {
+            const message = typeof payload === 'string'
+                ? payload.trim()
+                : String(payload?.content ?? '').trim()
+            const attachment = typeof File !== 'undefined' && payload?.attachment instanceof File
+                ? payload.attachment
+                : null
+
+            if (message === '' && !attachment) {
                 return;
             }
 
             const {$apiFetch} = useNuxtApp();
             const auth = useAuthStore();
-
+            const channelId = this.activeChannelId
             const clientId = Date.now()
+            const optimisticAttachment = createLocalMessageAttachment(attachment)
 
             const newMessage = reactive({
                 id: null,
@@ -192,25 +209,42 @@ export const useServerStore = defineStore('server', {
                 author: auth.user?.name ?? 'You',
                 created_at: new Date().toLocaleDateString([], {hour: 'numeric', minute: '2-digit', hour12: false}),
                 message,
+                attachment: optimisticAttachment,
                 reactions: [],
                 mine: true,
                 status: 'pending'
             })
 
-            this.appendMessageToChannel(newMessage, clientId, this.activeChannelId);
+            this.appendMessageToChannel(newMessage, clientId, channelId);
 
-            $apiFetch(`/channels/${this.activeChannelId}/messages`, {
+            let body = {
+                content: message,
+                client_id: clientId,
+            }
+
+            if (attachment) {
+                body = new FormData()
+                body.append('content', message)
+                body.append('client_id', String(clientId))
+                body.append('attachment', attachment, attachment.name)
+            }
+
+            return $apiFetch(`/channels/${channelId}/messages`, {
                 method: 'POST',
-                body: {
-                    content: message,
-                    client_id: clientId,
-                }
+                body,
             }).then(res => {
-                newMessage.id = res?.data?.id ?? null
+                const serverMessage = res?.data ?? {}
+
+                revokeLocalMessageAttachment(newMessage.attachment)
+                newMessage.id = serverMessage.id ?? null
+                newMessage.message = serverMessage.message ?? message
+                newMessage.attachment = serverMessage.attachment ?? null
+                newMessage.created_at = serverMessage.created_at ?? newMessage.created_at
                 newMessage.status = 'sent'
             }).catch(err => {
                 console.error(err)
                 newMessage.status = 'failed'
+                throw err
             })
         },
 

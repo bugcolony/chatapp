@@ -79,4 +79,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(ChannelPermissionOverride::class);
     }
+
+    public function messageMentions(): HasMany
+    {
+        return $this->hasMany(MessageMention::class);
+    }
 }

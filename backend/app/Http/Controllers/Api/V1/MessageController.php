@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Events\MessageCreated;
+use App\Actions\Message\CreateMessage;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Message\StoreMessageRequest;
 use App\Http\Resources\Api\V1\MessageResource;
@@ -14,6 +14,10 @@ use Throwable;
 
 class MessageController extends Controller
 {
+    public function __construct(
+        private readonly CreateMessage $createMessage,
+    ) {}
+
     /**
      * @throws Throwable
      */
@@ -22,26 +26,27 @@ class MessageController extends Controller
         return $channel
             ->messages()
             ->latest('id')
-            ->with('author')
+            ->with(['attachment', 'author', 'mentions'])
             ->cursorPaginate(12)
             ->toResourceCollection();
     }
 
     public function store(StoreMessageRequest $request, Channel $channel): MessageResource
     {
-        Gate::authorize('store', [Message::class, $channel]);
-
-        $message = $channel->messages()->create([
-            ...$request->safe()->only(['content']),
-            'server_id' => $channel->server_id,
-            'user_id' => auth()->id(),
+        Gate::authorize('store', [
+            Message::class,
+            $channel,
+            (int) ($request->file('attachment')?->getSize() ?? 0),
         ]);
 
-        MessageCreated::dispatch($message);
+        $message = $this->createMessage->execute(
+            channel: $channel,
+            author: $request->user(),
+            content: $request->validated('content'),
+            upload: $request->file('attachment'),
+        );
 
-        $message->load('author');
-
-        return (new MessageResource($message))
+        return new MessageResource($message)
             ->withClientId((int) $request->validated('client_id'));
     }
 }
