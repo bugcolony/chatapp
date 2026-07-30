@@ -68,11 +68,13 @@ async function handleSend(payload) {
   try {
     await store.sendMessage(payload)
   } catch (err) {
-    if (!payload?.attachment) return
-
     toast.add({
-      title: 'Attachment upload failed',
-      description: err?.data?.message ?? 'The file could not be uploaded. Try again.',
+      title: payload?.gif
+        ? 'GIF send failed'
+        : payload?.attachment
+          ? 'Attachment upload failed'
+          : 'Message send failed',
+      description: err?.data?.message ?? 'The message could not be sent. Try again.',
       icon: 'i-lucide-cloud-off',
       color: 'error',
     })

@@ -11,6 +11,9 @@ import { extractInviteCodes } from '~/utils/extractInviteCodes.js'
 import { installMessageMentionMarkdown } from '~/utils/messageMention.js'
 
 const JUMBO_EMOJI_LIMIT = 27
+const SANITIZE_OPTIONS = {
+  ADD_ATTR: ['referrerpolicy'],
+}
 
 const props = defineProps({
   message: {
@@ -25,7 +28,10 @@ const inviteCodes = computed(() => extractInviteCodes(messageContent.value, appU
 const emojiOnlyCount = computed(() => countEmojiOnlyMessage(props.message.message))
 const isJumboEmojiMessage = computed(() => emojiOnlyCount.value > 0)
 const sanitizedContent = computed(() =>
-  DOMPurify.sanitize(renderMessageContent(messageContent.value)),
+  DOMPurify.sanitize(
+    renderMessageContent(messageContent.value),
+    SANITIZE_OPTIONS,
+  ),
 )
 const store = useServerStore()
 const { activeServerId, serverMembers } = storeToRefs(store)
@@ -47,6 +53,18 @@ const md = new MarkdownIt({
 })
 
 installMessageMentionMarkdown(md, resolveMentionLabel)
+
+const defaultImageRenderer = md.renderer.rules.image
+
+md.renderer.rules.image = (tokens, index, options, env, renderer) => {
+  tokens[index].attrSet('loading', 'lazy')
+  tokens[index].attrSet('decoding', 'async')
+  tokens[index].attrSet('referrerpolicy', 'no-referrer')
+
+  return defaultImageRenderer
+    ? defaultImageRenderer(tokens, index, options, env, renderer)
+    : renderer.renderToken(tokens, index)
+}
 
 md.renderer.rules.text = (tokens, index) => {
   const text = md.utils.escapeHtml(tokens[index].content)
@@ -161,6 +179,18 @@ function countEmojiOnlyMessage(content) {
   padding: 2px 6px;
   color: var(--ui-primary);
   font-weight: 600;
+}
+
+.message-content :deep(img) {
+  display: block;
+  max-width: min(100%, 32rem);
+  max-height: 22rem;
+  margin-top: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--ui-border) 75%, transparent);
+  border-radius: 0.875rem;
+  background: var(--ui-bg-muted);
+  object-fit: contain;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 18%);
 }
 
 .message-content--jumbo {

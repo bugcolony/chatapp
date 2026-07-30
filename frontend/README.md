@@ -53,6 +53,7 @@ the Docker API, set:
 NUXT_PUBLIC_API_BASE=http://localhost
 NUXT_PUBLIC_APP_URL=http://localhost:3000
 NUXT_PUBLIC_WS_URL=ws://localhost/ws
+NUXT_PUBLIC_KLIPY_API_KEY=your-klipy-app-key
 ```
 
 The backend CORS and Sanctum stateful-domain settings must also allow
@@ -66,13 +67,15 @@ The backend CORS and Sanctum stateful-domain settings must also allow
 | `npm run lint` | Run ESLint with zero warnings allowed |
 | `npm run build` | Create a production Nuxt build |
 | `npm run generate` | Generate the static production application |
+| `npm test` | Run focused frontend unit tests |
 | `npm run preview` | Preview a completed Nuxt build |
 
 Before pushing frontend changes:
 
 ```bash
+npm test
 npm run lint
-npm run build
+npm run generate
 ```
 
 ## Runtime Configuration
@@ -82,10 +85,14 @@ npm run build
 | `NUXT_PUBLIC_API_BASE` | Same origin | Base URL for API and auth requests |
 | `NUXT_PUBLIC_APP_URL` | `http://localhost` | Public application URL |
 | `NUXT_PUBLIC_WS_URL` | Same-origin `/ws` | WebSocket endpoint |
+| `NUXT_PUBLIC_KLIPY_API_KEY` | Empty | Public KLIPY app key used by the GIF picker |
 | `NUXT_AUTH_TIMEOUT` | `10000` | Authentication bootstrap timeout in milliseconds |
 
-These values are public and are embedded in the client build. Do not place
-secrets in them.
+These values are public and are embedded in the client build. The direct
+browser integration exposes the KLIPY app key in API requests, so use a key
+created for this application and monitor it in the KLIPY Partner Panel. Use a
+server-side proxy if exposing the key or its quota is unacceptable. Do not
+place secret credentials in public runtime config.
 
 ## API and Authentication
 

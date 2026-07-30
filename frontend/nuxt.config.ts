@@ -30,6 +30,8 @@ export default defineNuxtConfig({
       // @ts-expect-error -- Node environment variables are available in Nuxt config.
       appUrl: process.env.NUXT_PUBLIC_APP_URL ?? "http://localhost",
       // @ts-expect-error -- Node environment variables are available in Nuxt config.
+      klipyApiKey: process.env.NUXT_PUBLIC_KLIPY_API_KEY ?? "",
+      // @ts-expect-error -- Node environment variables are available in Nuxt config.
       wsURL: process.env.NUXT_PUBLIC_WS_URL ?? "",
     },
   },

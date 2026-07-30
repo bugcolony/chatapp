@@ -2,6 +2,7 @@
 import { useDropZone, useObjectUrl } from '@vueuse/core'
 import { computed, ref, shallowRef } from 'vue'
 import MessageEmojiPicker from '~/components/messages/MessageEmojiPicker.vue'
+import MessageGifPicker from '~/components/messages/MessageGifPicker.vue'
 import {
   messageEmojiExtension,
   messageEmojiMenuItems,
@@ -9,8 +10,10 @@ import {
 import { fallbackAvatarSrc } from '~/composables/useServerAvatar.js'
 import { isPreviewableImageType } from '~/utils/messageAttachment.js'
 import { createMessageMentionExtension } from '~/utils/messageMention.js'
+import { createKlipyGifMarkdown } from '~/utils/klipyGif.js'
 
 const MAX_ATTACHMENT_SIZE = 2_000_000
+const MAX_MESSAGE_LENGTH = 2_000
 
 defineProps({
   placeholder: {
@@ -27,7 +30,9 @@ const {activeServerId, serverMembers} = storeToRefs(store)
 const toast = useToast()
 const composerDropZone = useTemplateRef('composerDropZone')
 const attachment = shallowRef(null)
+const selectedGif = shallowRef(null)
 const emojiOpen = ref(false)
+const gifOpen = ref(false)
 const editorExtensions = [
   messageEmojiExtension,
   createMessageMentionExtension(resolveMentionLabel),
@@ -50,8 +55,19 @@ const emojiMenuSuggestion = {
 }
 
 const trimmed = computed(() => draft.value.trim())
-const canSend = computed(() => trimmed.value.length > 0 || attachment.value !== null)
-const characterCount = computed(() => draft.value.length)
+const gifMarkdown = computed(() => createKlipyGifMarkdown(selectedGif.value))
+const composedContent = computed(() =>
+  [trimmed.value, gifMarkdown.value].filter(Boolean).join('\n\n'),
+)
+const characterCount = computed(() => composedContent.value.length)
+const isOverLimit = computed(() => characterCount.value > MAX_MESSAGE_LENGTH)
+const canSend = computed(() =>
+  !isOverLimit.value
+  && (
+    composedContent.value.length > 0
+    || attachment.value !== null
+  ),
+)
 const showCount = computed(() => characterCount.value > 180)
 const isPreviewableImage = computed(() =>
   isPreviewableImageType(attachment.value?.type),
@@ -91,10 +107,11 @@ function handleSend() {
   if (!canSend.value) return
 
   emit('send', {
-    content: trimmed.value,
+    content: composedContent.value,
     attachment: attachment.value,
+    gif: selectedGif.value,
   })
-  clearAttachment()
+  clearMedia()
 }
 
 function onKeydown(view, event) {
@@ -140,6 +157,26 @@ function insertEmoji(editor, emoji) {
   })
 }
 
+function selectGif(editor, gif) {
+  if (attachment.value) {
+    gifOpen.value = false
+    showMediaLimitToast('attachment')
+
+    requestAnimationFrame(() => {
+      editor.commands.focus()
+    })
+
+    return
+  }
+
+  selectedGif.value = gif
+  gifOpen.value = false
+
+  requestAnimationFrame(() => {
+    editor.commands.focus()
+  })
+}
+
 function getEmojiMenuContainer() {
   return document.body
 }
@@ -177,11 +214,31 @@ function setAttachment(file) {
     return
   }
 
+  if (selectedGif.value) {
+    showMediaLimitToast('GIF')
+
+    return
+  }
+
   attachment.value = file
 }
 
 function clearAttachment() {
   attachment.value = null
+}
+
+function clearMedia() {
+  clearAttachment()
+  selectedGif.value = null
+}
+
+function showMediaLimitToast(currentMedia) {
+  toast.add({
+    title: 'One media item at a time',
+    description: `Remove the current ${currentMedia} before adding another.`,
+    icon: 'i-lucide-images',
+    color: 'warning',
+  })
 }
 
 function formatFileSize(bytes) {
@@ -245,16 +302,17 @@ const appendToBody = import.meta.client ? () => document.body : undefined
 
         <UEditorMentionMenu :editor="editor" :items="members" :append-to="appendToBody" />
         <div
-          v-if="attachment"
+          v-if="attachment || selectedGif"
           class="col-span-3 row-start-1 mb-2 flex min-w-0 items-center gap-3 rounded-xl border border-muted bg-default/65 p-2 pr-10"
         >
           <div
-            v-if="isPreviewableImage"
+            v-if="selectedGif || isPreviewableImage"
             class="h-20 w-28 shrink-0 overflow-hidden rounded-lg border border-muted bg-muted"
           >
             <img
-              :src="attachmentPreviewUrl"
-              :alt="attachment.name"
+              :src="selectedGif?.previewUrl || attachmentPreviewUrl"
+              :alt="selectedGif?.title || attachment?.name"
+              referrerpolicy="no-referrer"
               class="size-full object-cover"
             >
           </div>
@@ -268,10 +326,10 @@ const appendToBody = import.meta.client ? () => document.body : undefined
 
           <div class="min-w-0">
             <p class="truncate text-sm font-semibold text-highlighted">
-              {{ attachment.name }}
+              {{ selectedGif?.title || attachment?.name }}
             </p>
             <p class="mt-0.5 text-xs text-muted">
-              {{ formatFileSize(attachment.size) }}
+              {{ selectedGif ? 'GIF · KLIPY' : formatFileSize(attachment?.size) }}
             </p>
           </div>
 
@@ -282,10 +340,10 @@ const appendToBody = import.meta.client ? () => document.body : undefined
             variant="ghost"
             size="sm"
             square
-            :aria-label="`Remove ${attachment.name}`"
-            title="Remove attachment"
+            :aria-label="`Remove ${selectedGif?.title || attachment?.name}`"
+            title="Remove media"
             class="absolute right-3 top-3 rounded-lg text-muted hover:text-highlighted"
-            @click="clearAttachment"
+            @click="clearMedia"
           />
         </div>
 
@@ -337,15 +395,44 @@ const appendToBody = import.meta.client ? () => document.body : undefined
               <MessageEmojiPicker @select="insertEmoji(editor, $event)" />
             </template>
           </UPopover>
+
+          <UPopover
+            v-model:open="gifOpen"
+            :content="{ side: 'top', align: 'start', sideOffset: 12 }"
+            :ui="{ content: 'overflow-hidden rounded-2xl border border-muted bg-elevated p-0 shadow-2xl' }"
+          >
+            <UButton
+              type="button"
+              label="GIF"
+              color="neutral"
+              variant="ghost"
+              size="lg"
+              aria-label="Add GIF"
+              title="Add GIF"
+              class="h-9 rounded-xl px-2 text-[11px] font-black tracking-tight text-muted transition hover:text-highlighted"
+            />
+
+            <template #content>
+              <MessageGifPicker @select="selectGif(editor, $event)" />
+            </template>
+          </UPopover>
         </div>
 
         <div class="col-start-3 row-start-2 mb-1 flex shrink-0 items-center gap-2">
           <span
             v-if="showCount"
-            class="hidden min-w-10 text-right text-[11px] font-semibold tabular-nums sm:inline"
-            :class="characterCount > 420 ? 'text-warning' : 'text-dimmed'"
+            id="message-character-count"
+            class="min-w-10 text-right text-[11px] font-semibold tabular-nums"
+            :class="isOverLimit
+              ? 'inline text-error'
+              : [
+                  'hidden sm:inline',
+                  characterCount > 1800 ? 'text-warning' : 'text-dimmed',
+                ]"
+            :role="isOverLimit ? 'alert' : undefined"
+            :aria-live="isOverLimit ? 'polite' : undefined"
           >
-            {{ characterCount }}
+            {{ characterCount }} / {{ MAX_MESSAGE_LENGTH }}
           </span>
 
           <UButton
@@ -356,9 +443,10 @@ const appendToBody = import.meta.client ? () => document.body : undefined
             size="lg"
             square
             :disabled="!canSend"
-            aria-label="Send message"
+            :aria-label="isOverLimit ? 'Message is too long' : 'Send message'"
+            :aria-describedby="showCount ? 'message-character-count' : undefined"
             aria-keyshortcuts="Enter"
-            title="Send message"
+            :title="isOverLimit ? 'Message is too long' : 'Send message'"
             class="size-10 rounded-xl transition-transform active:scale-95 disabled:opacity-45"
             :ui="{ leadingIcon: 'size-5' }"
             @click="handleSend"

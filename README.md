@@ -19,6 +19,7 @@ PostgreSQL, two isolated Redis instances, and S3-compatible object storage.
 - Session authentication with Laravel Sanctum
 - GitHub and Google OAuth support
 - Servers, channels, members, messages, and invite links
+- Searchable KLIPY GIF picker in the message composer
 - Real-time message delivery over authenticated WebSockets
 - Redis-backed sessions, cache, queues, and broadcasts
 - Horizon queue monitoring and optional Telescope diagnostics
@@ -32,6 +33,7 @@ PostgreSQL, two isolated Redis instances, and S3-compatible object storage.
 flowchart TB
     user["Person<br/><b>Chat user</b>"]
     oauth["External System<br/><b>OAuth providers</b><br/>GitHub and Google"]
+    klipy["External System<br/><b>KLIPY</b><br/>GIF search and media delivery"]
 
     subgraph chat["Software System: Chat"]
         spa["Container<br/><b>SPA</b><br/>Nuxt 4 browser application for auth, navigation, chat, and invites"]
@@ -45,6 +47,7 @@ flowchart TB
     user -->|"Uses in browser"| spa
     spa -->|"Calls JSON API<br/>session cookies and CSRF"| api
     spa -->|"Opens WebSocket<br/>with one-time ticket"| ws
+    spa -->|"Searches and displays GIFs"| klipy
 
     api -->|"Reads and writes application data"| postgres
     api -->|"Sessions, cache, queues"| redisops
@@ -61,7 +64,7 @@ flowchart TB
     class user person
     class spa,api,ws container
     class postgres,redisops,redisrt datastore
-    class oauth external
+    class oauth,klipy external
 ```
 
 ```text
@@ -178,7 +181,7 @@ Before pushing changes, run:
 
 ```bash
 (cd backend && composer validate --strict --no-interaction && php artisan test --compact)
-(cd frontend && npm run lint && npm run build)
+(cd frontend && npm test && npm run lint && npm run generate)
 (cd ws && test -z "$(gofmt -l .)" && go test ./...)
 docker compose --env-file .env -f compose.yaml config --quiet
 docker compose --env-file .env -f compose.yaml -f compose.dev.yaml config --quiet
@@ -212,7 +215,8 @@ Configure at least:
 - `APP_KEY`
 - PostgreSQL and Redis passwords
 - RustFS/S3 credentials and URLs
-- `NUXT_PUBLIC_API_BASE`, `NUXT_PUBLIC_APP_URL`, and `NUXT_PUBLIC_WS_URL`
+- `NUXT_PUBLIC_API_BASE`, `NUXT_PUBLIC_APP_URL`, `NUXT_PUBLIC_WS_URL`, and
+  `NUXT_PUBLIC_KLIPY_API_KEY`
 - `TRAEFIK_ACME_EMAIL`
 - OAuth client credentials when social login is enabled
 
