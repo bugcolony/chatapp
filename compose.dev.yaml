@@ -37,12 +37,14 @@ services:
         NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-}
         NUXT_PUBLIC_APP_URL: ${NUXT_PUBLIC_APP_URL:-}
         NUXT_PUBLIC_WS_URL: ${NUXT_PUBLIC_WS_URL:-ws://localhost/ws}
+        NUXT_PUBLIC_KLIPY_API_KEY: ${NUXT_PUBLIC_KLIPY_API_KEY:-}
         NUXT_AUTH_TIMEOUT: ${NUXT_AUTH_TIMEOUT:-10000}
     command: ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
     environment:
       NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-}
       NUXT_PUBLIC_APP_URL: ${NUXT_PUBLIC_APP_URL:-}
       NUXT_PUBLIC_WS_URL: ${NUXT_PUBLIC_WS_URL:-ws://localhost/ws}
+      NUXT_PUBLIC_KLIPY_API_KEY: ${NUXT_PUBLIC_KLIPY_API_KEY:-}
       NUXT_AUTH_TIMEOUT: ${NUXT_AUTH_TIMEOUT:-10000}
       NUXT_DEVTOOLS_ENABLED: ${NUXT_DEVTOOLS_ENABLED:-false}
     volumes:
