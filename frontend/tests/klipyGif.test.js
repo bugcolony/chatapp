@@ -110,7 +110,7 @@ test('builds native v1 search and trending requests', () => {
       per_page: 24,
       q: 'happy dance',
       locale: 'en',
-      content_filter: 'high',
+      content_filter: 'low',
       format_filter: 'gif,webp',
     },
   })
