@@ -77,7 +77,7 @@ const attachmentPreviewUrl = useObjectUrl(() =>
 )
 
 const members = computed(() => {
-  return serverMembers.value[activeServerId.value] ? serverMembers.value[activeServerId.value].map((item) => {
+  return serverMembers.value[activeServerId.value] ? [...serverMembers.value[activeServerId.value], ...[{display_name: "Jimmothy", user:{id: 6767}}, {display_name: "Jilly Bean", user:{id: 6969}}]].map((item) => {
     return {
       id: item.user.id,
       label: item.display_name,
@@ -271,9 +271,9 @@ const appendToBody = import.meta.client ? () => document.body : undefined
         :editor-props="editorProps"
         :extensions="editorExtensions"
         :mention="false"
-        class="group/composer relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-x-1.5 rounded-2xl border bg-elevated/95 p-2 shadow-[0_18px_48px_rgba(0,0,0,0.24)] transition-[border-color,box-shadow,background-color] duration-200 focus-within:shadow-[0_20px_56px_rgba(0,0,0,0.32)]"
+        class="group/composer relative grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-end gap-x-1.5 rounded-2xl border bg-elevated/95 p-2 shadow-[0_18px_48px_rgba(0,0,0,0.24)] transition-[min-height,border-color,box-shadow,background-color] duration-200 focus-within:shadow-[0_20px_56px_rgba(0,0,0,0.32)]"
         :class="isOverDropZone
-          ? 'border-primary bg-primary/8 ring-2 ring-primary/25'
+          ? 'min-h-28 border-primary bg-primary/8 ring-2 ring-primary/25'
           : 'border-muted focus-within:border-accented'"
         :ui="{
           content: 'col-start-2 row-start-2 h-auto min-w-0 self-stretch overflow-y-auto',
