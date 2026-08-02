@@ -14,8 +14,8 @@ async function logout() {
 			<nav class="p-4 flex items-center justify-between max-w-7xl mx-auto">
 				<div class="flex items-center gap-4">
 					<NuxtLink to="/" class="font-semibold hover:text-emerald-700 transition-colors">Home</NuxtLink>
-					<NuxtLink to="/about" class="font-semibold hover:text-emerald-700 transition-colors">About</NuxtLink>
-					<NuxtLink to="/app" class="font-semibold hover:text-emerald-700 transition-colors">App</NuxtLink>
+					<NuxtLink to="/updates" class="font-semibold hover:text-emerald-700 transition-colors">What's New</NuxtLink>
+					<NuxtLink v-if="auth.isAuthenticated" to="/app" class="font-semibold hover:text-emerald-700 transition-colors">App</NuxtLink>
 				</div>
 				<div class="flex items-center gap-3">
 					<UButton
