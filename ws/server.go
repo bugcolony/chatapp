@@ -36,7 +36,7 @@ type Payload struct {
 	Data           map[string]any
 }
 
-type Subscription struct {
+type SubscribeServerCommand struct {
 	client   *Client
 	serverId int
 }
@@ -115,14 +115,19 @@ func NewServer(store RealtimeStore, redisChannel string) *Server {
 	s := new(Server)
 
 	s.hub = new(Hub{
-		register:            make(chan *Client),
-		subscribe:           make(chan *Client),
-		subscribeToServer:   make(chan *Subscription),
-		unsubscribe:         make(chan *Client),
-		broadcast:           make(chan Broadcast),
-		users:               make(map[int]map[*Client]bool),
-		connections:         make(map[*Client]bool),
-		serverSubscriptions: make(map[int]map[*Client]bool),
+		register:             make(chan *Client),
+		subscribe:            make(chan *Client),
+		subscribeToServer:    make(chan *SubscribeServerCommand),
+		unsubscribe:          make(chan *Client),
+		broadcast:            make(chan Broadcast),
+		activateServer:       make(chan *SetActiveServerCommand),
+		typeReg:              make(chan *SetTypingPresenceCommand),
+		users:                make(map[int]map[*Client]bool),
+		connections:          make(map[*Client]bool),
+		serverSubscriptions:  make(map[int]map[*Client]bool),
+		activeServerClients:  make(map[int]map[*Client]bool),
+		activeServerByClient: make(map[*Client]int),
+		typePresenceReg:      make(map[*Client]*TypingState),
 	})
 
 	s.store = store
@@ -168,7 +173,7 @@ func (s *Server) webSocket(w http.ResponseWriter, r *http.Request) {
 	s.hub.register <- client
 
 	for _, id := range client.serverSubscriptions {
-		s.hub.subscribeToServer <- &Subscription{client, id}
+		s.hub.subscribeToServer <- &SubscribeServerCommand{client, id}
 	}
 
 	go client.writer()

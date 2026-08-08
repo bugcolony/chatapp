@@ -2,6 +2,7 @@ import {
     createLocalMessageAttachment,
     revokeLocalMessageAttachment,
 } from '~/utils/messageAttachment.js'
+import {updatePendingMemberPresence} from '~/utils/memberPresence.js'
 
 export const useServerStore = defineStore('server', {
     state: () => ({
@@ -10,10 +11,13 @@ export const useServerStore = defineStore('server', {
         servers: [],
         serverChannels: {},
         serverMembers: {},
+        serverMemberFetchGenerations: {},
         channelMessages: new Map(),
+        pendingMemberUpdates: {},
         channelMeta: new Map(),
         channelsLoading: new Set(),
         friends: [],
+        channelTypingPresence: new Map()
     }),
     getters: {
         activeServer: (state) => state.servers.find((s) => s.id === state.activeServerId) ?? null,
@@ -48,12 +52,23 @@ export const useServerStore = defineStore('server', {
         },
 
         async fetchServerMembers(serverId) {
+            const generation = (this.serverMemberFetchGenerations[serverId] ?? 0) + 1
+            this.serverMemberFetchGenerations[serverId] = generation
+
             try {
                 const {$apiFetch} = useNuxtApp();
 
                 const res = await $apiFetch(`servers/${serverId}/members`);
 
+                if (this.serverMemberFetchGenerations[serverId] !== generation) {
+                    return
+                }
+
                 this.serverMembers[serverId] = res?.data ?? [];
+
+                if (this.pendingMemberUpdates[serverId]) {
+                    this.setServerMemberStatusSnapshot(serverId, this.pendingMemberUpdates[serverId])
+                }
             } catch (error) {
                 console.error("Error fetching server members:", error);
                 throw error;
@@ -163,6 +178,55 @@ export const useServerStore = defineStore('server', {
                     : channel);
 
             this.invalidateChannelState(channelId);
+        },
+
+        setServerMemberStatusSnapshot(serverId, userState) {
+            const statuses = new Map(userState.map((e) => [e.id, e]))
+
+            if (!this.serverMembers[serverId]) {
+                this.pendingMemberUpdates[serverId] = userState
+
+                return
+            }
+
+            this.serverMembers[serverId]?.forEach((m) => {
+                if (statuses.has(m.user.id)) {
+                    m.status = 'online'
+                } else {
+                    m.status = 'offline'
+                }
+            })
+
+            delete this.pendingMemberUpdates[serverId]
+        },
+
+        setServerMemberStatus(serverId, userState) {
+            if (this.serverMembers[serverId]) {
+                const member = this.serverMembers[serverId].find((el) => el.user.id === userState.id)
+
+                if (member) {
+                    member.status = userState.status
+                }
+            } else {
+                this.pendingMemberUpdates[serverId] = updatePendingMemberPresence(
+                    this.pendingMemberUpdates[serverId],
+                    userState,
+                )
+            }
+        },
+
+        setChannelTypingPresence(channelId, userId) {
+            if (!this.channelTypingPresence.has(channelId)) {
+                this.channelTypingPresence.set(channelId, new Set())
+            }
+
+            this.channelTypingPresence.get(channelId).add(userId)
+        },
+
+        removeChannelTypingPresence(channelId, userId) {
+            if (this.channelTypingPresence.has(channelId)) {
+                this.channelTypingPresence.get(channelId).delete(userId)
+            }
         },
 
         async deleteServerChannel(serverId, channelId) {

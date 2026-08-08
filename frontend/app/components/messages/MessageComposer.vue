@@ -261,7 +261,7 @@ const appendToBody = import.meta.client ? () => document.body : undefined
   <div class="px-3 pb-3 pt-2 sm:px-4">
     <div
       ref="composerDropZone"
-      class="relative mx-auto max-w-6xl"
+      class="relative mx-auto"
     >
       <UEditor
         v-slot="{ editor }"

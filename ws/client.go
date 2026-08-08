@@ -1,6 +1,9 @@
 package blueberry
 
 import (
+	"bytes"
+	"encoding/json"
+	"slices"
 	"sync"
 	"time"
 
@@ -14,6 +17,12 @@ type Client struct {
 	once                sync.Once
 	ws                  *websocket.Conn
 	send                chan []byte
+}
+
+type TypingState struct {
+	ServerId  int
+	ChannelId int
+	ExpiresAt *time.Time
 }
 
 func (c *Client) close() {
@@ -62,11 +71,55 @@ func (c *Client) reader() {
 	})
 
 	for {
-		_, _, err := c.ws.ReadMessage()
+		_, msg, err := c.ws.ReadMessage()
 		if err != nil {
 			return
 		}
 
-		// Client events go here
+		var command ClientCommand
+
+		decoder := json.NewDecoder(bytes.NewReader(msg))
+
+		if err := decoder.Decode(&command); err != nil {
+			continue
+		}
+
+		if command.ServerId != nil && !slices.Contains(c.serverSubscriptions, *command.ServerId) {
+			continue
+		}
+
+		switch command.Op {
+		case OpClientActiveServer:
+			c.hub.activateServer <- &SetActiveServerCommand{c, command.ServerId}
+		case OpClientTypingStart:
+			if command.ServerId == nil || command.ChannelId == nil {
+				continue
+			}
+
+			expiresAt := time.Now().Add(TypePresenceExpirationTime * time.Second)
+
+			c.hub.typeReg <- &SetTypingPresenceCommand{
+				start:  true,
+				client: c,
+				typingPresence: &TypingState{
+					ServerId:  *command.ServerId,
+					ChannelId: *command.ChannelId,
+					ExpiresAt: &expiresAt,
+				},
+			}
+		case OpClientTypingStop:
+			if command.ServerId == nil || command.ChannelId == nil {
+				continue
+			}
+
+			c.hub.typeReg <- &SetTypingPresenceCommand{
+				start:  false,
+				client: c,
+				typingPresence: &TypingState{
+					ServerId:  *command.ServerId,
+					ChannelId: *command.ChannelId,
+				},
+			}
+		}
 	}
 }
