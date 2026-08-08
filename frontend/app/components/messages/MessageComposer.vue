@@ -77,7 +77,7 @@ const attachmentPreviewUrl = useObjectUrl(() =>
 )
 
 const members = computed(() => {
-  return serverMembers.value[activeServerId.value] ? [...serverMembers.value[activeServerId.value], ...[{display_name: "Jimmothy", user:{id: 6767}}, {display_name: "Jilly Bean", user:{id: 6969}}]].map((item) => {
+  return serverMembers.value[activeServerId.value] ? serverMembers.value[activeServerId.value].map((item) => {
     return {
       id: item.user.id,
       label: item.display_name,
