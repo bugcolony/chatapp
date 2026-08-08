@@ -11,8 +11,15 @@ const uiStore = useChatUIStore()
 const { activeServerId, serverMembers, activeServer } = storeToRefs(store)
 const { rightSidebarOpen } = storeToRefs(uiStore)
 
-const members = computed(() => serverMembers.value[activeServerId.value] ?? [])
-const onlineMembersCount = computed(() => members.value.filter((m) => m.online).length)
+const members = computed(() => serverMembers.value[activeServerId.value]?.toSorted((a,b) => {
+  if (a.status !== b.status) {
+    return a.status === 'online' ? -1 : 1;
+  }
+
+  return a.display_name.localeCompare(b.display_name)
+}) ?? [])
+
+const onlineMembersCount = computed(() => members.value.filter((m) => m.status === 'online').length)
 
 const memberActionItems = [
   [
@@ -43,6 +50,17 @@ watchEffect(() => {
     store.fetchServerMembers(activeServerId.value)
   }
 })
+
+function chipStatusColor(status) {
+  switch (status) {
+    case 'online':
+      return 'bg-green-400'
+    case 'away':
+      return 'bg-amber-300'
+    default:
+      return 'bg-slate-700'
+  }
+}
 
 </script>
 
@@ -96,10 +114,14 @@ watchEffect(() => {
               <UAvatar
                 :src="fallbackAvatarSrc(member.display_name)"
                 size="lg"
+                :chip="{
+                  inset: true,
+                  ui: {base: chipStatusColor(member.status) + ' ring-0'}
+                }"
               />
               <span class="min-w-0 flex-1">
                 <span class="flex items-center gap-2">
-                  <span class="truncate text-sm font-bold">{{ member.display_name }}</span>
+                  <span class="truncate text-sm font-bold" :class="{'text-white': member.status === 'online'}">{{ member.display_name }}</span>
 <!--                <span class="rounded-full bg-white/8 px-2 py-0.5 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">-->
 <!--                  {{ member.role ?? 'dog' }}-->
 <!--                </span>-->

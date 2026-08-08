@@ -15,7 +15,7 @@ definePageMeta({
 const route = useRoute()
 const store = useServerStore()
 const auth = useAuthStore()
-const {connect, disconnect} = useSocketStore()
+const {connect, disconnect, setActiveServer} = useSocketStore()
 const {openInvite} = useInviteOverlay()
 const {code, clear} = usePendingInvite()
 const notificationAudio = ref(null)
@@ -28,10 +28,14 @@ const routeChannelId = computed(() =>
     route.params.channelId ? Number(route.params.channelId) : null,
 )
 
-watchEffect(() => {
-  store.activeServerId = routeServerId.value
-  store.activeChannelId = routeChannelId.value
-})
+watch(routeServerId, (serverId) => {
+  store.activeServerId = serverId
+  setActiveServer(serverId ?? null)
+}, { immediate: true })
+
+watch(routeChannelId, (channelId) => {
+  store.activeChannelId = channelId
+}, { immediate: true })
 
 onMounted(async () => {
   registerNotificationPlayer(() => {

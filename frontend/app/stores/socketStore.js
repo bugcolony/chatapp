@@ -1,4 +1,5 @@
 import { useNotificationHub } from '~/composables/useNotificationHub.js'
+import {RealtimeOperations} from "~/constants/RealtimeOperations.js";
 
 export const useSocketStore = defineStore('socket', () => {
     const reconnectBaseDelay = 1000
@@ -16,14 +17,16 @@ export const useSocketStore = defineStore('socket', () => {
     let reconnectAttempt = 0
     let shouldReconnect = false
     let connectionGeneration = 0
+    let typeEventSent = false
 
-    const {status, open, close} = useWebSocket(() => socketUrl, {
+    const {status, open, send, close} = useWebSocket(() => socketUrl, {
         immediate: false,
         autoConnect: false,
         autoReconnect: false,
         onConnected: () => {
             reconnectAttempt = 0
             clearReconnectTimer()
+            setActiveServer(serverStore.activeServerId)
         },
         onError: (_, event) => {
             console.warn('[WS] Connection error:', event)
@@ -71,6 +74,45 @@ export const useSocketStore = defineStore('socket', () => {
         }, delay)
     }
 
+    function dispatchEvent(event) {
+        send(JSON.stringify(event))
+    }
+
+    function setActiveServer(serverId) {
+        if (status.value !== 'OPEN') {
+            return
+        }
+
+        dispatchEvent({
+            op: RealtimeOperations.CLIENT_SERVER_ACTIVE,
+            serverId: serverId
+        })
+    }
+
+    function startTypingEvent(serverId, channelId) {
+        typeEventSent = true
+
+        dispatchEvent({
+            op: RealtimeOperations.CLIENT_START_TYPING,
+            serverId: serverId,
+            channelId: channelId
+        })
+    }
+
+    function stopTypingEvent(serverId, channelId) {
+        if (!typeEventSent) {
+            return
+        }
+
+        dispatchEvent({
+            op: RealtimeOperations.CLIENT_STOP_TYPING,
+            serverId: serverId,
+            channelId: channelId
+        })
+
+        typeEventSent = false
+    }
+
     function resolveWebSocketUrl() {
         const configuredUrl = String(config.public.wsURL || '').replace(/\/$/, '')
         const resolvedUrl = new URL(configuredUrl || '/ws', window.location.origin)
@@ -88,7 +130,7 @@ export const useSocketStore = defineStore('socket', () => {
         const operation = JSON.parse(event.data);
 
         switch (operation.op) {
-            case 1:
+            case RealtimeOperations.MESSAGE_CREATED:
                 // TODO: do better dedupe
                 // TODO: rework to client_id check
                 if (operation.senderId === auth.user?.id) {
@@ -98,24 +140,31 @@ export const useSocketStore = defineStore('socket', () => {
                 serverStore.upsertChannelMessage(operation.targetChannelId, operation.data)
                 playNotification()
 
-                // if (serverStore.activeChannelId === operation.targetChannelId) {
-                //     serverStore.appendMessageToChannel(operation.data, operation.data.id, operation.targetChannelId)
-                // } else {
-                //     serverStore.invalidateChannelState(operation.targetChannelId)
-                // }
                 break;
-            case 2:
+            case RealtimeOperations.CHANNEL_CREATED:
                 serverStore.upsertServerChannel(operation.targetServerId, operation.data)
                 break;
-            case 3:
+            case RealtimeOperations.CHANNEL_UPDATED:
                 serverStore.upsertServerChannel(operation.targetServerId, operation.data)
                 break;
-            case 4:
+            case RealtimeOperations.CHANNEL_DELETED:
                 serverStore.removeServerChannel(operation.targetServerId, operation.data.id)
 
                 if (serverStore.activeChannelId === operation.data.id) {
                     void navigateTo(`/app/servers/${operation.targetServerId}`)
                 }
+                break;
+            case RealtimeOperations.GW_MEMBER_STATUS_SNAPSHOT:
+                serverStore.setServerMemberStatusSnapshot(operation.targetServerId, operation.data.members)
+                break;
+            case RealtimeOperations.GW_MEMBER_STATUS:
+                serverStore.setServerMemberStatus(operation.targetServerId, operation.data)
+                break;
+            case RealtimeOperations.CLIENT_START_TYPING:
+                serverStore.setChannelTypingPresence(operation.targetChannelId, operation.data.id)
+                break;
+            case RealtimeOperations.CLIENT_STOP_TYPING:
+                serverStore.removeChannelTypingPresence(operation.targetChannelId, operation.data.id)
                 break;
             default:
                 console.log('[WS] Unknown OP:', operation)
@@ -237,5 +286,8 @@ export const useSocketStore = defineStore('socket', () => {
         connect,
         disconnect,
         reconnect,
+        setActiveServer,
+        startTypingEvent,
+        stopTypingEvent
     }
 })

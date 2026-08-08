@@ -1,4 +1,4 @@
-FROM golang:1.26-alpine AS ws-build
+FROM golang:1.26.5-alpine AS ws-build
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
     -o /usr/local/bin/ws \
     ./cmd/web
 
-FROM golang:1.26-alpine AS ws-dev
+FROM golang:1.26.5-alpine AS ws-dev
 
 WORKDIR /app
 

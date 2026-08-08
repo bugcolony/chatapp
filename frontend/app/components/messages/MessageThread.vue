@@ -11,13 +11,23 @@ const props = defineProps({
     type: Number,
     required: true,
   },
+  serverId: {
+    type: Number,
+    required: true,
+  },
 })
 
 const channelId = props.channelId
+const serverId = props.serverId
 const store = useServerStore()
-const {channelMessages, channelMeta, channelsLoading} = storeToRefs(store)
+const authStore = useAuthStore()
+const socketStore = useSocketStore()
+const {channelMessages, channelMeta, channelsLoading, channelTypingPresence, serverMembers} = storeToRefs(store)
 const toast = useToast()
 
+const activeChannelTypingPresence = computed(() => channelTypingPresence.value.get(channelId) ?? null)
+const typingMembers = computed(() => serverMembers.value[serverId]?.filter(m => activeChannelTypingPresence.value?.has(m.user.id) && m.user.id !== authStore.authId))
+const typingMemberTitle = computed(() => typingMembers.value?.map((m) => m.display_name).join(', '))
 const activeMessageBucket = computed(() => channelMessages.value.get(channelId) ?? null)
 const hasMore = computed(() => channelMeta.value.get(channelId)?.has_more_pages ?? false)
 const channelLoading = computed(() => channelsLoading.value.has(channelId))
@@ -67,6 +77,7 @@ async function handleSend(payload) {
 
   try {
     await store.sendMessage(payload)
+    socketStore.stopTypingEvent(serverId, channelId)
   } catch (err) {
     toast.add({
       title: payload?.gif
@@ -153,6 +164,18 @@ watch(() => arrivedState.top, (atTop, wasAtTop) => {
   if (atTop && !wasAtTop && scrollAdjusted.value && !channelLoading.value && hasMore.value) {
     prependHistory()
   }
+})
+
+watchThrottled(draft, (message) => {
+  if (message.trim()) {
+    socketStore.startTypingEvent(serverId, channelId)
+  } else {
+    socketStore.stopTypingEvent(serverId, channelId)
+  }
+}, {
+  throttle: 3000,
+  leading: true,
+  trailing: false
 })
 </script>
 
@@ -248,8 +271,13 @@ watch(() => arrivedState.top, (atTop, wasAtTop) => {
         />
       </div>
     </div>
-
     <div class="relative">
+      <div
+          v-if="typingMembers?.length > 0"
+          class="-top-6 ring-1 ring-slate-700/60 rounded-md px-3 left-7 bg-slate-800/90 p-1 text-xs bg-red absolute flex items-center gap-1"
+      >
+        <UIcon class="animate-pulse" name="i-lucide-pencil-line" />
+        <span class="font-bold">{{ typingMemberTitle }}</span> {{typingMembers.length > 1 ? "are" : "is"}} typing</div>
       <MessageComposer
         v-model="draft"
         class="mb-10"
