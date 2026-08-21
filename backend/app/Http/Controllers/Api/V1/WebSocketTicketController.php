@@ -3,31 +3,27 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use Exception;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Redis;
-use Str;
+use App\Services\Gateway\WebSocketTicketStore;
+use Illuminate\Http\JsonResponse;
+use Throwable;
 
 class WebSocketTicketController extends Controller
 {
-    public function __invoke()
+    public function __invoke(WebSocketTicketStore $tickets): JsonResponse
     {
         try {
-            $ticket = Str::random(32);
-            $payload = json_encode([
-                'id' => auth()->user()->id,
-                'serverSubscriptions' => auth()->user()->activeServers()->pluck('servers.id')->toArray(),
-            ], JSON_THROW_ON_ERROR);
+            $user = auth()->user();
 
-            return Redis::connection('realtime')
-                ->client()
-                ->setex("ticket:$ticket", 60, $payload)
-                ? response()->json(['ticket' => $ticket])
-                : throw new Exception('Unable to set WS ticket in redis.');
-        } catch (Exception $e) {
-            Log::error($e->getMessage(), $e->getTrace());
+            $ticket = $tickets->issue(
+                $user->id,
+                $user->activeServers()->pluck('servers.id')->toArray(),
+            );
+        } catch (Throwable $e) {
+            report($e);
 
             return response()->json(['error' => 'Could not create ticket'], 500);
         }
+
+        return response()->json(['ticket' => $ticket]);
     }
 }

@@ -154,6 +154,15 @@ export const useSocketStore = defineStore('socket', () => {
                     void navigateTo(`/app/servers/${operation.targetServerId}`)
                 }
                 break;
+            case RealtimeOperations.VOICE_PARTICIPANT_JOINED:
+                serverStore.addVoiceChannelParticipant(operation.targetChannelId, operation.data.id)
+                break;
+            case RealtimeOperations.VOICE_PARTICIPANT_LEFT:
+                serverStore.removeVoiceChannelParticipant(operation.targetChannelId, operation.data.id)
+                break;
+            case RealtimeOperations.VOICE_CHANNEL_CLOSED:
+                serverStore.clearVoiceChannel(operation.targetChannelId)
+                break;
             case RealtimeOperations.GW_MEMBER_STATUS_SNAPSHOT:
                 serverStore.setServerMemberStatusSnapshot(operation.targetServerId, operation.data.members)
                 break;

@@ -1,0 +1,7 @@
+keys:
+  devkey: 'developmentsecretapikeysecretsosecret'
+
+webhook:
+  api_key: 'devkey'
+  urls:
+    - 'http://localhost/api/v1/rtc/events'

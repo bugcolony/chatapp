@@ -4,7 +4,6 @@ import { storeToRefs } from 'pinia'
 import MessageComposer from '~/components/messages/MessageComposer.vue'
 import MessageItem from '~/components/messages/MessageItem.vue'
 import MessageSkeleton from '~/components/messages/MessageSkeleton.vue'
-import PinnedServerBar from '~/components/servers/PinnedServerBar.vue'
 
 const props = defineProps({
   channelId: {
@@ -76,7 +75,7 @@ async function handleSend(payload) {
   draft.value = ''
 
   try {
-    await store.sendMessage(payload)
+    await store.sendMessage(channelId, payload)
     socketStore.stopTypingEvent(serverId, channelId)
   } catch (err) {
     toast.add({
@@ -156,7 +155,12 @@ watchPostEffect(() => {
 
 onMounted(async () => {
   if (!channelMessages.value.has(channelId)) {
-    await store.fetchChannelMessages(channelId)
+    try {
+      await store.fetchChannelMessages(channelId)
+    } catch (err) {
+      await navigateTo(`/app/servers/${serverId}`)
+    }
+
   }
 })
 
@@ -180,8 +184,7 @@ watchThrottled(draft, (message) => {
 </script>
 
 <template>
-  <main class="chat-panel relative flex min-h-0 flex-col rounded-4xl border border-white/8 bg-slate-950/62 shadow-2xl shadow-black/25 backdrop-blur-xl">
-    <PinnedServerBar />
+  <section class="relative flex min-h-0 min-w-0 flex-1 flex-col">
 
     <DevOnly>
       <div class="absolute left-2/6 top-3 grid w-1/6 grid-cols-2 gap-2 whitespace-nowrap">
@@ -293,5 +296,5 @@ watchThrottled(draft, (message) => {
         @click="scrollToBottom()"
       />
     </div>
-  </main>
+  </section>
 </template>

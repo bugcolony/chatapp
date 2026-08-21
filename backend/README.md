@@ -142,7 +142,7 @@ plus ten verified users. Every user is an active member of every server, and
 2. Laravel stores a random one-time ticket in real-time Redis for 60 seconds.
 3. The WebSocket service consumes the ticket during connection setup.
 4. When a message is created, Laravel publishes a `MESSAGE_CREATED` payload to
-   the `messages.created` Redis channel.
+   the realtime Redis channel.
 5. The WebSocket service forwards the payload to clients subscribed to the
    target server.
 

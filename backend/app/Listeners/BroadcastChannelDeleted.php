@@ -2,28 +2,20 @@
 
 namespace App\Listeners;
 
-use App\Enums\BroadcastOperation;
 use App\Events\ChannelDeleted;
-use Illuminate\Support\Facades\Redis;
-use JsonException;
+use App\Services\Gateway\GatewayEvent;
+use App\Services\Gateway\RealtimeTransport;
 
-class BroadcastChannelDeleted
+readonly class BroadcastChannelDeleted
 {
-    /**
-     * @throws JsonException
-     */
+    public function __construct(private RealtimeTransport $transport) {}
+
     public function handle(ChannelDeleted $event): void
     {
-        Redis::connection('realtime')->client()->publish(
-            'messages.created',
-            json_encode([
-                'op' => BroadcastOperation::CHANNEL_DELETED,
-                'targetServerId' => $event->serverId,
-                'data' => [
-                    'id' => $event->channelId,
-                    'type' => $event->type,
-                ],
-            ], JSON_THROW_ON_ERROR),
-        );
+        $this->transport->publish(GatewayEvent::channelDeleted(
+            $event->channelId,
+            $event->serverId,
+            $event->type,
+        ));
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Actions\Message;
 
 use App\Events\MessageCreated;
+use App\Exceptions\ChannelDoesNotSupportMessages;
 use App\Models\Channel;
 use App\Models\Message;
 use App\Models\User;
@@ -31,6 +32,10 @@ final readonly class CreateMessage
         ?UploadedFile $upload,
     ): Message
     {
+        if (! $channel->type->supportsMessages()) {
+            throw new ChannelDoesNotSupportMessages("channel with type {$channel->type->value} cant receive messages");
+        }
+
         $storedAttachment = $upload
             ? $this->attachmentStorage->store($upload, $channel)
             : null;

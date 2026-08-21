@@ -8,6 +8,7 @@ use App\Http\Requests\Api\V1\Message\StoreMessageRequest;
 use App\Http\Resources\Api\V1\MessageResource;
 use App\Models\Channel;
 use App\Models\Message;
+use Exception;
 use Gate;
 use Illuminate\Http\Resources\Json\ResourceCollection;
 use Throwable;
@@ -31,7 +32,7 @@ class MessageController extends Controller
             ->toResourceCollection();
     }
 
-    public function store(StoreMessageRequest $request, Channel $channel): MessageResource
+    public function store(StoreMessageRequest $request, Channel $channel)
     {
         Gate::authorize('store', [
             Message::class,
@@ -39,14 +40,20 @@ class MessageController extends Controller
             (int) ($request->file('attachment')?->getSize() ?? 0),
         ]);
 
-        $message = $this->createMessage->execute(
-            channel: $channel,
-            author: $request->user(),
-            content: $request->validated('content'),
-            upload: $request->file('attachment'),
-        );
+        try {
+            $message = $this->createMessage->execute(
+                channel: $channel,
+                author: $request->user(),
+                content: $request->validated('content'),
+                upload: $request->file('attachment'),
+            );
 
-        return new MessageResource($message)
-            ->withClientId((int) $request->validated('client_id'));
+            return new MessageResource($message)
+                ->withClientId((int) $request->validated('client_id'));
+        } catch (Exception $e) {
+            report($e);
+
+            return response(['error' => "Couldn't send message at this time"], 500);
+        }
     }
 }

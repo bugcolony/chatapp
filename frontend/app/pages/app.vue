@@ -31,6 +31,7 @@ const routeChannelId = computed(() =>
 watch(routeServerId, (serverId) => {
   store.activeServerId = serverId
   setActiveServer(serverId ?? null)
+  store.fetchVoicePresence(serverId)
 }, { immediate: true })
 
 watch(routeChannelId, (channelId) => {
@@ -85,16 +86,6 @@ function handlePendingInvite() {
 <style>
 .chat-dashboard {
   font-family: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
-}
-
-.chat-dashboard::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: url("/images/bgpatt.webp");
-  opacity: 0.045;
-  mix-blend-mode: screen;
-  pointer-events: none;
 }
 
 .chat-panel {

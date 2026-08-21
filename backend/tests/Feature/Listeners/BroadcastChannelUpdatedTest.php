@@ -5,7 +5,8 @@ use App\Enums\ChannelType;
 use App\Events\ChannelUpdated;
 use App\Listeners\BroadcastChannelUpdated;
 use App\Models\Channel;
-use Illuminate\Support\Facades\Redis;
+use App\Services\Gateway\RealtimeTransport;
+use Tests\Support\FakeTransport;
 
 test('channel updated payload targets every client subscribed to the server', function () {
     $channel = new Channel([
@@ -16,25 +17,20 @@ test('channel updated payload targets every client subscribed to the server', fu
     ]);
     $channel->id = 56;
 
-    $client = Mockery::mock();
-    $connection = Mockery::mock();
+    $transport = new FakeTransport;
+    $this->app->instance(RealtimeTransport::class, $transport);
 
-    Redis::shouldReceive('connection')->once()->with('realtime')->andReturn($connection);
-    $connection->shouldReceive('client')->once()->andReturn($client);
-    $client->shouldReceive('publish')->once()->withArgs(function (string $topic, string $payload): bool {
-        $operation = json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
+    $this->app->make(BroadcastChannelUpdated::class)->handle(new ChannelUpdated($channel));
 
-        return $topic === 'messages.created'
-            && $operation['op'] === BroadcastOperation::CHANNEL_UPDATED->value
-            && $operation['targetServerId'] === 12
-            && $operation['data'] === [
-                'id' => 56,
-                'server_id' => 12,
-                'parent_id' => 34,
-                'type' => ChannelType::Text->value,
-                'name' => 'announcements',
-            ];
-    });
+    $operation = $transport->sole();
 
-    (new BroadcastChannelUpdated)->handle(new ChannelUpdated($channel));
+    expect($operation->op)->toBe(BroadcastOperation::CHANNEL_UPDATED)
+        ->and($operation->target->serverId)->toBe(12)
+        ->and($operation->data)->toBe([
+            'id' => 56,
+            'server_id' => 12,
+            'parent_id' => 34,
+            'type' => ChannelType::Text,
+            'name' => 'announcements',
+        ]);
 });

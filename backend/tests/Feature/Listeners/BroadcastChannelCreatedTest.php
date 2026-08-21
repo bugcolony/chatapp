@@ -5,7 +5,8 @@ use App\Enums\ChannelType;
 use App\Events\ChannelCreated;
 use App\Listeners\BroadcastChannelCreated;
 use App\Models\Channel;
-use Illuminate\Support\Facades\Redis;
+use App\Services\Gateway\RealtimeTransport;
+use Tests\Support\FakeTransport;
 
 test('channel created payload targets every client subscribed to the server', function () {
     $channel = new Channel([
@@ -16,34 +17,22 @@ test('channel created payload targets every client subscribed to the server', fu
     ]);
     $channel->id = 56;
 
-    $client = Mockery::mock();
-    $connection = Mockery::mock();
+    $transport = new FakeTransport;
+    $this->app->instance(RealtimeTransport::class, $transport);
 
-    Redis::shouldReceive('connection')
-        ->once()
-        ->with('realtime')
-        ->andReturn($connection);
+    $this->app->make(BroadcastChannelCreated::class)->handle(new ChannelCreated($channel));
 
-    $connection->shouldReceive('client')
-        ->once()
-        ->andReturn($client);
+    $operation = $transport->sole();
 
-    $client->shouldReceive('publish')
-        ->once()
-        ->withArgs(function (string $topic, string $payload): bool {
-            $operation = json_decode($payload, true, flags: JSON_THROW_ON_ERROR);
-
-            return $topic === 'messages.created'
-                && $operation['op'] === BroadcastOperation::CHANNEL_CREATED->value
-                && $operation['targetServerId'] === 12
-                && $operation['data'] === [
-                    'id' => 56,
-                    'server_id' => 12,
-                    'parent_id' => 34,
-                    'type' => ChannelType::Text->value,
-                    'name' => 'announcements',
-                ];
-        });
-
-    (new BroadcastChannelCreated)->handle(new ChannelCreated($channel));
+    expect($operation->op)->toBe(BroadcastOperation::CHANNEL_CREATED)
+        ->and($operation->target->serverId)->toBe(12)
+        ->and($operation->target->channelId)->toBeNull()
+        ->and($operation->data)->toBe([
+            'id' => 56,
+            'server_id' => 12,
+            'parent_id' => 34,
+            'message_channel_id' => 56,
+            'type' => ChannelType::Text,
+            'name' => 'announcements',
+        ]);
 });
