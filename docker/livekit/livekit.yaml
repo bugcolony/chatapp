@@ -1,7 +1,18 @@
-keys:
-  devkey: 'developmentsecretapikeysecretsosecret'
+port: 7880
+
+rtc:
+  udp_port: 7882
+  tcp_port: 7881
+  use_external_ip: false
+
+room:
+  max_participants: 5
 
 webhook:
-  api_key: 'devkey'
   urls:
-    - 'http://localhost/api/v1/rtc/events'
+    - http://api-web:8080/api/v1/rtc/events
+  filter_params:
+    include_events:
+      - participant_joined
+      - participant_left
+      - room_finished

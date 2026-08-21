@@ -34,5 +34,8 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="PERMISSION_CACHE_STORE" value="array"/>
+        <env name="LIVEKIT_URL" value="http://livekit:7880"/>
+        <env name="LIVEKIT_API_KEY" value="testkey"/>
+        <env name="LIVEKIT_API_SECRET" value="testsecrettestsecrettestsecrettestsecret"/>
     </php>
 </phpunit>

@@ -48,3 +48,6 @@ opencode.json
 Thumbs.db
 *.swp
 *.swo
+
+## local-only docs
+docs/deploy-runbook.html

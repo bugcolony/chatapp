@@ -21,6 +21,7 @@ PostgreSQL, two isolated Redis instances, and S3-compatible object storage.
 - Servers, channels, members, messages, and invite links
 - Searchable KLIPY GIF picker in the message composer
 - Real-time message delivery over authenticated WebSockets
+- Voice and video channels backed by a self-hosted LiveKit SFU
 - Redis-backed sessions, cache, queues, and broadcasts
 - Horizon queue monitoring and optional Telescope diagnostics
 - Docker development and production targets
@@ -146,8 +147,15 @@ docker compose --env-file .env -f compose.yaml -f compose.dev.yaml exec api-php 
 | RustFS console | <http://localhost:9001> |
 
 PostgreSQL, Redis, and RustFS ports are bound to `127.0.0.1`; their defaults
-are listed in [`.env.example`](.env.example). PgAdmin is available through the
-optional `tools` profile:
+are listed in [`.env.example`](.env.example).
+
+LiveKit signalling is routed by Traefik under `/rtc`, but WebRTC media bypasses
+the proxy: `7881/tcp` (ICE/TCP) and `7882/udp` (UDP mux) are published straight
+to the host. `LIVEKIT_NODE_IP` is the address advertised to browsers as the ICE
+candidate, so it must match how the browser reaches those ports - loopback when
+the browser runs on the Docker host, the VM address otherwise.
+
+PgAdmin is available through the optional `tools` profile:
 
 ```bash
 docker compose --env-file .env -f compose.yaml -f compose.dev.yaml \
@@ -215,12 +223,41 @@ Configure at least:
 - `APP_KEY`
 - PostgreSQL and Redis passwords
 - RustFS/S3 credentials and URLs
-- `NUXT_PUBLIC_API_BASE`, `NUXT_PUBLIC_APP_URL`, `NUXT_PUBLIC_WS_URL`, and
-  `NUXT_PUBLIC_KLIPY_API_KEY`
+- `NUXT_PUBLIC_API_BASE`, `NUXT_PUBLIC_APP_URL`, `NUXT_PUBLIC_WS_URL`,
+  `NUXT_PUBLIC_RTC_URL`, and `NUXT_PUBLIC_KLIPY_API_KEY`
 - `TRAEFIK_ACME_EMAIL`
+- `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, and `LIVEKIT_NODE_IP`
 - OAuth client credentials when social login is enabled
 
 Compose rejects missing application, database, Redis, and RustFS/S3 secrets.
+
+Voice needs two things that nothing else in the stack does. `LIVEKIT_NODE_IP`
+must be the host's public IP, because it is written verbatim into the ICE
+candidates browsers dial; the container cannot discover it on its own. And
+`7881/tcp` and `7882/udp` must be open inbound on the host firewall. Signalling
+travels over 443 like everything else, so a closed media port leaves voice
+channels that connect, list participants, and carry no audio.
+
+Generate the keypair with the server binary, and note that a secret shorter
+than 32 characters makes LiveKit refuse to start:
+
+```bash
+docker run --rm livekit/livekit-server:v1.13.5 generate-keys
+```
+
+`NUXT_PUBLIC_RTC_URL` is baked into the SPA at build time, so it must also be
+set as a repository variable for GitHub Actions - changing it later requires a
+rebuild, not a restart.
+
+Nothing validates `LIVEKIT_NODE_IP`. A value LiveKit cannot parse is discarded
+silently and the container advertises its own bridge address instead, so the
+only signal is that voice stops working. Confirm the advertised address after
+every deploy:
+
+```bash
+docker compose --env-file .env.production -f compose.yaml \
+  logs livekit | grep -o '"nodeIP": "[^"]*"' | head -1
+```
 
 `AWS_URL` is intentionally empty by default. Set it only when the object
 storage bucket is exposed through a real public URL or CDN.

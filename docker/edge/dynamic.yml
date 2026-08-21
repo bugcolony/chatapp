@@ -7,7 +7,7 @@ http:
         frameDeny: true
         stsSeconds: 31536000
         referrerPolicy: strict-origin-when-cross-origin
-        permissionsPolicy: camera=(), microphone=(), geolocation=()
+        permissionsPolicy: camera=(self), microphone=(self), display-capture=(self), geolocation=()
         customResponseHeaders:
           X-Frame-Options: DENY
           X-Content-Type-Options: nosniff
