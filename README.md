@@ -12,19 +12,71 @@ PostgreSQL, two isolated Redis instances, and S3-compatible object storage.
 <img align="left" src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Go_Logo_Blue.svg/1280px-Go_Logo_Blue.svg.png" alt="go logo" width="110" />
 <img align="left" src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Postgresql_elephant.svg/1280px-Postgresql_elephant.svg.png" alt="PostgreSql logo" width="50" />
 <img align="left" src="https://cdn.freebiesupply.com/logos/thumbs/2x/redis-logo.png" alt="redis logo" width="80" />
-<img src="https://upload.wikimedia.org/wikipedia/commons/a/a7/Docker-svgrepo-com.svg" alt="docker logo" width="80" />
+<img align="left" src="https://upload.wikimedia.org/wikipedia/commons/a/a7/Docker-svgrepo-com.svg" alt="docker logo" width="80" />
+<img src="https://www.svgrepo.com/show/354551/webrtc.svg" alt="webrtc logo" width="70" />
 
 ## Features
 
-- Session authentication with Laravel Sanctum
-- GitHub and Google OAuth support
-- Servers, channels, members, messages, and invite links
-- Searchable KLIPY GIF picker in the message composer
-- Real-time message delivery over authenticated WebSockets
-- Voice and video channels backed by a self-hosted LiveKit SFU
-- Redis-backed sessions, cache, queues, and broadcasts
+### Servers, channels, and categories
+
+<img src="docs/images/servers-channels.webp" width="760" alt="Server sidebar with categories, the channel context menu, and the create channel and create category dialogs">
+
+Create a server, group channels under categories, and manage the whole tree from a context menu: create, rename, move, and delete without leaving the sidebar. Invite links survive the sign-in flow, so a new member lands in the right server after authenticating.
+
+### Real-time messaging
+
+<img src="docs/images/messaging.webp" width="320" alt="Message thread with a typing indicator above the composer">
+
+Messages arrive over an authenticated WebSocket connection served by the Go gateway, which subscribes to Redis Pub/Sub and fans events out to the browsers watching a channel. Typing indicators and unread counts ride the same connection — no polling anywhere in the path.
+
+### A composer that keeps up
+
+<img src="docs/images/composer.webp" width="320" alt="Emoji picker open above the message composer">
+
+Markdown formatting with sanitised rendering, a searchable native emoji picker, jumbo emoji for emoji-only messages, and `@` autocomplete for member mentions — all inline, without switching context away from the conversation.
+
+### GIF search built in
+
+<img src="docs/images/gif-picker.webp" width="320" alt="KLIPY GIF picker open above the message composer">
+
+Browse trending GIFs or search the [KLIPY](https://klipy.com) catalogue straight from the composer. Preview a result and send it into the channel without opening another tab.
+
+### Attachments
+
+<img src="docs/images/attachments.webp" width="320" alt="A file dragged over the composer showing the drop to attach overlay">
+
+Attach a file through the picker, the clipboard, or by dropping it onto the composer. Uploads land in S3-compatible object storage, and images get inline previews and a download action in the thread.
+
+### Voice and video channels
+
+<img src="docs/images/voice-call.webp" width="520" alt="Voice call with four participant tiles, one sharing a screen and one on camera, above the call control bar">
+
+Voice channels are a channel type, so they sit in the same sidebar with the members currently inside them listed underneath. Join with one click, then unmute, turn on the camera, or share a screen from the call bar — every participant gets a tile that highlights while they speak. Media runs through a self-hosted [LiveKit](https://livekit.io) SFU, and each voice channel carries its own text chat you can toggle open beside the call.
+
+### Live presence
+
+<img src="docs/images/presence.webp" width="320" alt="Member panel showing online and offline members with a live online count">
+
+The member panel shows who is online, keeps the count current as people connect and drop, and marks offline members without hiding them.
+
+### What’s New page
+
+<img src="docs/images/whats-new.webp" width="320" alt="The What’s New page showing release notes grouped by version">
+
+Product updates ship with the app. Each release gets an entry with screenshots and a categorised changelog, rendered from plain data files the frontend picks up automatically.
+
+### Sign-in and OAuth
+
+<img src="docs/images/login_panel.webp" width="320" alt="Sign-in screen with Google and GitHub buttons above the email and password form">
+
+Session authentication with Laravel Sanctum, plus GitHub and Google OAuth. Sessions recover on reload and protected routes stay closed until the session resolves.
+
+### Under the hood
+
+- Redis-backed sessions, cache, queues, locks, and broadcasts, split across two isolated instances
+- One-time WebSocket tickets minted by the API and redeemed by the Go gateway
 - Horizon queue monitoring and optional Telescope diagnostics
-- Docker development and production targets
+- Docker development and production targets behind Traefik
 
 ## Architecture
 
@@ -40,22 +92,28 @@ flowchart TB
         spa["Container<br/><b>SPA</b><br/>Nuxt 4 browser application for auth, navigation, chat, and invites"]
         api["Container<br/><b>API</b><br/>Laravel application for auth, authorization, domain logic, and persistence"]
         ws["Container<br/><b>WebSocket gateway</b><br/>Go service for authenticated real-time event delivery"]
+        livekit["Container<br/><b>LiveKit SFU</b><br/>Self-hosted WebRTC media server for voice and video rooms"]
         postgres[("Database<br/><b>PostgreSQL</b><br/>Users, servers, channels, members, messages, invites")]
         redisops[("Data Store<br/><b>Redis ops</b><br/>Sessions, cache, queues, locks")]
-        redisrt[("Data Store<br/><b>Redis real-time</b><br/>One-time WebSocket tickets and messages.created Pub/Sub")]
+        redisrt[("Data Store<br/><b>Redis real-time</b><br/>One-time WebSocket tickets, voice channel presence, and event Pub/Sub")]
     end
 
     user -->|"Uses in browser"| spa
     spa -->|"Calls JSON API<br/>session cookies and CSRF"| api
     spa -->|"Opens WebSocket<br/>with one-time ticket"| ws
     spa -->|"Searches and displays GIFs"| klipy
+    spa -->|"Signalling over WSS<br/>through Traefik /rtc"| livekit
+    spa <-->|"WebRTC media<br/>7881/tcp and 7882/udp,<br/>direct to the host"| livekit
 
     api -->|"Reads and writes application data"| postgres
     api -->|"Sessions, cache, queues"| redisops
-    api -->|"Stores 60s tickets;<br/>publishes message events"| redisrt
+    api -->|"Stores 60s tickets and voice presence;<br/>publishes chat and voice events"| redisrt
     api -->|"OAuth redirect and callback exchange"| oauth
 
-    ws -->|"GETDEL ticket;<br/>subscribes messages.created"| redisrt
+    ws -->|"GETDEL ticket;<br/>subscribes chat and voice events"| redisrt
+
+    livekit -->|"participant joined or left,<br/>room finished webhooks"| api
+    api -.->|"Signs room join tokens<br/>with the shared LiveKit key"| livekit
 
     classDef person fill:#084c61,color:#ffffff,stroke:#052f3c,stroke-width:1px
     classDef container fill:#116466,color:#ffffff,stroke:#0b3f40,stroke-width:1px
@@ -63,7 +121,7 @@ flowchart TB
     classDef external fill:#475569,color:#ffffff,stroke:#334155,stroke-width:1px
 
     class user person
-    class spa,api,ws container
+    class spa,api,ws,livekit container
     class postgres,redisops,redisrt datastore
     class oauth,klipy external
 ```
@@ -76,12 +134,47 @@ Traefik
   |-- /                       -> Nuxt frontend
   |-- /api, /auth, /sanctum   -> Nginx -> Laravel PHP-FPM
   |-- /ws                     -> Go WebSocket gateway
+  |-- /rtc                    -> LiveKit signalling (WebSocket)
   |
   |-- Laravel -> PostgreSQL
   |-- Laravel -> Redis (operations)
   |-- Laravel -> Redis (real-time) -> WebSocket gateway
   `-- Laravel -> RustFS (S3-compatible storage)
+
+Browser <-> LiveKit media, bypassing Traefik
+  |-- 7881/tcp (ICE over TCP)
+  `-- 7882/udp (UDP mux)
+
+LiveKit -> Laravel webhook -> Redis (real-time) -> WebSocket gateway -> Browser
 ```
+
+### Voice and video path
+
+Voice channels do not go through the WebSocket gateway. They run against a
+self-hosted LiveKit SFU, and the API is only involved at the edges:
+
+1. The SPA asks the API for credentials: `POST /api/v1/channels/{channel}/credentials`.
+   Channel membership is checked, then `LiveKitAccessService` signs a join token
+   with the shared LiveKit key. The token carries the user id as the participant
+   identity and grants access to exactly one room, named `channel:{id}`.
+2. The browser opens signalling to LiveKit over WSS. Traefik routes `/rtc` to the
+   container's `7880` port; media never touches the proxy.
+3. WebRTC media flows straight to the host on `7881/tcp` (ICE over TCP) and
+   `7882/udp` (UDP mux). `LIVEKIT_NODE_IP` is what LiveKit writes into its ICE
+   candidates, so it has to be the address browsers can actually reach.
+4. LiveKit posts `participant_joined`, `participant_left`, and `room_finished`
+   webhooks to `POST /api/v1/rtc/events` over the internal network. The signature
+   is verified against the same shared key before anything is trusted.
+5. The API keeps a Redis set per voice channel (`voice:channel:{id}`) and
+   publishes a gateway event, which the Go gateway fans out over the existing
+   WebSocket connection. That is how the roster under a voice channel updates for
+   everyone, including people who never joined the call.
+6. `GET /api/v1/servers/{server}/voice-presence` returns the snapshot a client
+   needs on load, before any live event arrives.
+
+Rooms are capped at 5 participants in [`docker/livekit/livekit.yaml`](docker/livekit/livekit.yaml).
+Deployment specifics - node IP, firewall ports, and key generation - are covered
+under [Production](#production).
 
 | Directory | Purpose |
 | --- | --- |
