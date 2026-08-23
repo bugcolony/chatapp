@@ -158,9 +158,9 @@ onMounted(async () => {
     try {
       await store.fetchChannelMessages(channelId)
     } catch (err) {
+      console.error(err)
       await navigateTo(`/app/servers/${serverId}`)
     }
-
   }
 })
 
