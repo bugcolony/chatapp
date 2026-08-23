@@ -1,5 +1,6 @@
 <?php
 
+use App\Exceptions\ChannelDoesNotSupportMessages;
 use App\Exceptions\MessageAttachmentStorageException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -27,6 +28,18 @@ $app = Application::configure(basePath: dirname(__DIR__))
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request): bool => $request->is('api/*') || $request->expectsJson(),
+        );
+
+        $exceptions->render(
+            function (ChannelDoesNotSupportMessages $exception, Request $request) {
+                if (! $request->expectsJson()) {
+                    return null;
+                }
+
+                return response()->json([
+                    'message' => 'This channel does not accept messages.',
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            },
         );
 
         $exceptions->render(

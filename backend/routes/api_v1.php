@@ -6,8 +6,11 @@ use App\Http\Controllers\Api\V1\MemberController;
 use App\Http\Controllers\Api\V1\MessageAttachmentController;
 use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\PreferenceController;
+use App\Http\Controllers\Api\V1\RTCController;
 use App\Http\Controllers\Api\V1\ServerController;
 use App\Http\Controllers\Api\V1\ServerInviteController;
+use App\Http\Controllers\Api\V1\VoiceChannelController;
+use App\Http\Controllers\Api\V1\VoicePresenceController;
 use App\Http\Controllers\Api\V1\WebSocketTicketController;
 use App\Http\Middleware\ChannelMember;
 use App\Http\Middleware\ServerMember;
@@ -18,6 +21,8 @@ Route::group(['middleware' => 'throttle:5,1'], static function () {
     //    Route::post('/register', [AuthController::class, 'register']);
     Route::get('/invites/{code}', [ServerInviteController::class, 'show']);
 });
+
+Route::post('/rtc/events', RTCController::class);
 
 Route::group(['middleware' => 'auth:sanctum'], static function () {
     Route::prefix('me')->group(static function () {
@@ -39,6 +44,7 @@ Route::group(['middleware' => 'auth:sanctum'], static function () {
             Route::get('/members', [MemberController::class, 'index']);
             Route::get('/channels', [ChannelController::class, 'index']);
             Route::post('/channels', [ChannelController::class, 'store']);
+            Route::get('/voice-presence', VoicePresenceController::class);
             Route::post('/invites', [ServerInviteController::class, 'store'])->middleware(['throttle:10,1']);
             Route::post('/leave', [MemberController::class, 'destroy']);
         });
@@ -51,6 +57,7 @@ Route::group(['middleware' => 'auth:sanctum'], static function () {
             Route::delete('', [ChannelController::class, 'destroy']);
             Route::get('/messages', [MessageController::class, 'index']);
             Route::post('/messages', [MessageController::class, 'store']);
+            Route::post('/credentials', VoiceChannelController::class);
         });
     });
 

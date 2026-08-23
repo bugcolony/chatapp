@@ -33,7 +33,6 @@ type Payload struct {
 	TargetServerId int
 	TargetChannel  int
 	SenderId       int
-	Data           map[string]any
 }
 
 type SubscribeServerCommand struct {

@@ -44,4 +44,11 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('APP_URL').'/auth/google/callback',
     ],
+    'rtc' => [
+        'livekit' => [
+            'url' => env('LIVEKIT_URL'),
+            'api_key' => env('LIVEKIT_API_KEY'),
+            'secret' => env('LIVEKIT_API_SECRET'),
+        ]
+    ]
 ];

@@ -33,6 +33,8 @@ export default defineNuxtConfig({
       klipyApiKey: process.env.NUXT_PUBLIC_KLIPY_API_KEY ?? "",
       // @ts-expect-error -- Node environment variables are available in Nuxt config.
       wsURL: process.env.NUXT_PUBLIC_WS_URL ?? "",
+      // @ts-expect-error -- Node environment variables are available in Nuxt config.
+      rtcUrl: process.env.NUXT_PUBLIC_RTC_URL ?? "ws://localhost:7880"
     },
   },
 

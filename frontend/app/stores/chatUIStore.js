@@ -2,6 +2,7 @@ export const useChatUIStore = defineStore('chatUI', {
     state: () => ({
         leftSidebarOpen: true,
         rightSidebarOpen: true,
+        voiceTextVisible: true,
         searchQuery: '',
         serverSearchQuery: '',
         draft: '',
@@ -12,6 +13,9 @@ export const useChatUIStore = defineStore('chatUI', {
         },
         toggleRightSidebar() {
             this.rightSidebarOpen = !this.rightSidebarOpen
+        },
+        toggleVoiceTextVisible() {
+            this.voiceTextVisible = !this.voiceTextVisible
         },
         clearSearch() {
             this.searchQuery = ''

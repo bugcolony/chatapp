@@ -1,4 +1,6 @@
 <script setup lang="js">
+import {fallbackAvatarSrc} from "~/composables/useServerAvatar.js";
+
 const props = defineProps({
   item: { type: Object, required: true },
   active: { type: Boolean, default: false },
@@ -7,6 +9,19 @@ const props = defineProps({
 const emit = defineEmits(['select', 'add-channel', 'edit', 'delete'])
 
 const isCategory = computed(() => props.item.type === 'category')
+const store = useServerStore()
+const {activeServerId, serverMembers, voiceChannelParticipants} = storeToRefs(store)
+const voiceParticipants = computed(() => {
+  if (props.item.type === 'voice') {
+    if (voiceChannelParticipants.value.has(props.item.id)) {
+      const participants = voiceChannelParticipants.value.get(props.item.id)
+
+      return serverMembers.value[activeServerId.value]?.filter((m) => participants.has(m.user.id)) ?? []
+    }
+  }
+
+  return []
+})
 const contextMenuItems = computed(() => [
   [
     {
@@ -27,14 +42,15 @@ const contextMenuItems = computed(() => [
 </script>
 
 <template>
-  <UContextMenu
-    :items="contextMenuItems"
-    :ui="{
-      content: 'w-44 rounded-xl bg-default/95 shadow-2xl shadow-black/40 ring ring-default backdrop-blur-xl',
-      item: 'rounded-lg',
-    }"
-  >
+
     <div>
+      <UContextMenu
+          :items="contextMenuItems"
+          :ui="{
+            content: 'w-44 rounded-xl bg-default/95 shadow-2xl shadow-black/40 ring ring-default backdrop-blur-xl',
+            item: 'rounded-lg',
+            }"
+      >
       <div v-if="item.type === 'category'" class="mb-1.5 flex items-center justify-between px-1">
         <p class="truncate text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
           {{ item.name }}
@@ -63,16 +79,9 @@ const contextMenuItems = computed(() => [
         <UIcon
           :name="item.icon"
           class="size-4 shrink-0"
-          :class="item.live ? 'text-emerald-300' : ''"
         />
-        <UIcon name="i-lucide-hash" class="size-3.5 shrink-0 text-slate-500" />
+        <UIcon :name="item.type === 'voice' ? 'i-lucide-headset' : 'i-lucide-hash'" class="size-3.5 shrink-0 text-slate-500" />
         <span class="min-w-0 flex-1 truncate text-sm font-bold">{{ item.name }}</span>
-        <span
-          v-if="item.live"
-          class="rounded-full bg-emerald-400/20 px-1.5 py-0.5 text-xs font-black uppercase tracking-wider text-emerald-200"
-        >
-          live
-        </span>
         <span
           v-if="item.unread > 0"
           class="rounded-full bg-orange-400 px-2 py-0.5 text-xs font-black text-slate-950"
@@ -80,6 +89,16 @@ const contextMenuItems = computed(() => [
           {{ item.unread }}
         </span>
       </UButton>
+
+      </UContextMenu>
+      <ul v-if="item.type === 'voice' && voiceParticipants.length > 0" class="pl-10 py-2">
+        <li v-for="member in voiceParticipants" :key="member.id" class="flex items-center py-1">
+          <UAvatar
+              :src="fallbackAvatarSrc(member.display_name)"
+              size="xs"
+          />
+          <span class="ml-2 text-sm">{{member.display_name}}</span>
+        </li>
+      </ul>
     </div>
-  </UContextMenu>
 </template>

@@ -13,8 +13,17 @@ const gridColumnClasses = {
   4: 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4',
 }
 
+const imageAspectClasses = {
+  video: 'aspect-video',
+  square: 'aspect-square',
+}
+
 const columnClass = computed(() =>
   gridColumnClasses[props.data.cols ?? 2] ?? gridColumnClasses[2],
+)
+
+const imageAspectClass = computed(() =>
+  imageAspectClasses[props.data.imageAspect] ?? '',
 )
 
 function itemImage(item) {
@@ -52,6 +61,7 @@ function itemImage(item) {
             :alt="itemImage(item).alt"
             loading="lazy"
             class="block w-full object-cover rounded-xl border-3 border-indigo-300"
+            :class="imageAspectClass"
           >
           <div class="pt-4">
             <h4 class="font-bold text-highlighted">

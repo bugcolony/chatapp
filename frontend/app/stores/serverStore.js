@@ -17,12 +17,27 @@ export const useServerStore = defineStore('server', {
         channelMeta: new Map(),
         channelsLoading: new Set(),
         friends: [],
-        channelTypingPresence: new Map()
+        channelTypingPresence: new Map(),
+        voiceChannelParticipants: new Map()
     }),
     getters: {
         activeServer: (state) => state.servers.find((s) => s.id === state.activeServerId) ?? null,
         serverIds: (state) => state.servers.map((s) => s.id),
-        pinnedServerIds: (state) => state.servers.filter((s) => s.pin_position).map((el) => el.id) ?? []
+        pinnedServerIds: (state) => state.servers.filter((s) => s.pin_position).map((el) => el.id) ?? [],
+        activeServerChannels: (state) => state.serverChannels[state.activeServerId] ?? [],
+        activeChannel: (state) => state.activeServerChannels.find(c => c.id === state.activeChannelId) ?? null,
+        activeMessageChannel: (state) => {
+            if (state.activeChannel?.type === 'text') {
+                return state.activeChannel
+            }
+
+            if (state.activeChannel?.type === 'voice') {
+                return state.activeServerChannels.find(c => c.type === 'voice_text' && c.parent_id === state.activeChannel.id) ?? null
+            }
+
+            return null
+        },
+        activeMessageChannelId: (state) => state.activeMessageChannel?.id ?? state.activeChannel?.message_channel_id,
     },
     actions: {
         async fetchServers() {
@@ -172,7 +187,7 @@ export const useServerStore = defineStore('server', {
             const channels = this.serverChannels[serverId] ?? [];
 
             this.serverChannels[serverId] = channels
-                .filter(channel => channel.id !== channelId)
+                .filter(channel => channel.id !== channelId && !(channel.type === 'voice_text' && channel.parent_id === channelId))
                 .map(channel => channel.parent_id === channelId
                     ? {...channel, parent_id: null}
                     : channel);
@@ -249,7 +264,7 @@ export const useServerStore = defineStore('server', {
             this.channelsLoading.delete(channelId);
         },
 
-        sendMessage(payload) {
+        sendMessage(channelId, payload) {
             const message = typeof payload === 'string'
                 ? payload.trim()
                 : String(payload?.content ?? '').trim()
@@ -263,7 +278,6 @@ export const useServerStore = defineStore('server', {
 
             const {$apiFetch} = useNuxtApp();
             const auth = useAuthStore();
-            const channelId = this.activeChannelId
             const clientId = Date.now()
             const optimisticAttachment = createLocalMessageAttachment(attachment)
 
@@ -369,6 +383,48 @@ export const useServerStore = defineStore('server', {
                 delete this.serverMembers[id]
 
                 this.servers = this.servers.filter(s => s.id !== id);
+            }
+        },
+
+        addVoiceChannelParticipant(channelId, userId) {
+            if (!this.voiceChannelParticipants.has(channelId)) {
+                this.voiceChannelParticipants.set(channelId, new Set())
+            }
+
+            this.voiceChannelParticipants.get(channelId).add(userId)
+        },
+
+        removeVoiceChannelParticipant(channelId, userId) {
+            if (this.voiceChannelParticipants.has(channelId)) {
+                this.voiceChannelParticipants.get(channelId).delete(userId)
+            }
+        },
+
+        clearVoiceChannel(channelId) {
+            if (this.voiceChannelParticipants.has(channelId)) {
+                this.voiceChannelParticipants.delete(channelId)
+            }
+        },
+
+        async fetchVoicePresence(serverId) {
+            if (!serverId) {
+                return;
+            }
+
+            try {
+                const {$apiFetch} = useNuxtApp();
+
+                const res = await $apiFetch(`servers/${serverId}/voice-presence`);
+
+                this.applyVoicePresenceSnapshots(res.channels ?? {})
+            } catch (error) {
+                console.error("Error fetching voice channel presence:", error);
+            }
+        },
+
+        applyVoicePresenceSnapshots(snapshots) {
+            for (let [channelId, userIds] of Object.entries(snapshots)) {
+                this.voiceChannelParticipants.set(Number(channelId), new Set(userIds))
             }
         },
 

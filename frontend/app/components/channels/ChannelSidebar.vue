@@ -19,12 +19,11 @@ const { openCreateChannelModal, openEditChannelModal } = useCreateChannelModal()
 const { openEditCategoryModal } = useCreateCategoryModal()
 const { openDeleteChannelModal } = useDeleteChannelModal()
 const toast = useToast()
-// const channelListElement = useTemplateRef('channelList')
 
 const activeServerChannels = computed(() => serverChannels.value[activeServerId.value] ?? [])
 const flatChannelList = computed(() => {
   const categories = activeServerChannels.value.filter(item => item.type === 'category')
-  const channels = activeServerChannels.value.filter(item => item.type === 'text')
+  const channels = activeServerChannels.value.filter(item => ['text', 'voice'].includes(item.type))
   const grouped = Object.groupBy(channels, item => item.parent_id ?? 0)
   const list = []
 
@@ -46,14 +45,6 @@ const flatChannelList = computed(() => {
 
   return list
 })
-
-
-// useSortable(channelListElement, flatChannelList, {
-//   onUpdate: (e) => {
-//     console.log(flatChannelList.value[e.oldIndex].name)
-//     return null
-//   }
-// })
 
 function handleAddChannelClick(id) {
   if (activeServer.value) {

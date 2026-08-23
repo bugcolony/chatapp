@@ -40,6 +40,17 @@ const categories = computed(() => {
   return channels.filter(item => item.type === 'category')
 })
 
+const types = [
+  {
+    id: 'text',
+    name: 'Text',
+  },
+  {
+    id: 'voice',
+    name: 'Voice',
+  }
+]
+
 const schema = z.object({
   name: z.string().trim().min(1, 'Enter a channel name').max(100, 'At most 100 characters'),
 })
@@ -52,9 +63,13 @@ async function onSubmit() {
     const { $apiFetch } = useNuxtApp()
     const payload = {
       name: state.name.trim(),
-      type: 'text',
       parent_id: state.parent_id ?? null,
     }
+
+    if (!isEditing.value) {
+      payload.type = state.type
+    }
+
     const response = await $apiFetch(
       isEditing.value
         ? `/channels/${props.channel.id}`
@@ -140,6 +155,22 @@ async function onSubmit() {
               clear
               :items="categories"
               class="w-full"
+          />
+        </UFormField>
+
+        <UFormField
+            label="Type"
+            name="type"
+            :ui="{ label: 'text-xs font-bold uppercase tracking-[0.18em] text-slate-400', hint: 'text-xs text-slate-500' }"
+        >
+          <USelectMenu
+              v-model="state.type"
+              value-key="id"
+              label-key="name"
+              placeholder="Select type"
+              :items="types"
+              class="w-full"
+              :disabled="isEditing"
           />
         </UFormField>
 
