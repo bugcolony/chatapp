@@ -3,10 +3,6 @@ const props = defineProps({
   track: {
     type: Object,
     required: true
-  },
-  title: {
-    type: String,
-    required: false
   }
 })
 

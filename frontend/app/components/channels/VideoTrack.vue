@@ -3,10 +3,6 @@ const props = defineProps({
   track: {
     type: Object,
     required: true
-  },
-  title: {
-    type: String,
-    required: false
   }
 })
 
@@ -23,8 +19,8 @@ onUnmounted(() => {
 
 <template>
   <video
-      class="w-full"
       ref="el"
+      class="w-full"
       autoplay
       playsinline
       muted

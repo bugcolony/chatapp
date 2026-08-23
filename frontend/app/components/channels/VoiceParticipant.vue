@@ -41,11 +41,11 @@ const isMuted = computed(() => props.participant.local ? !microphoneEnabled.valu
       class="size-20"
       :class="{'hidden': isStreaming}"
   />
-  <AudioTrack v-if="microphone" :track="microphone" :key="microphone.sid"></AudioTrack>
-  <AudioTrack v-if="screenAudio" :track="screenAudio" :key="screenAudio.sid"></AudioTrack>
-  <VideoTrack v-if="camera && !camera?.muted" :track="camera" :key="camera.sid"></VideoTrack>
-  <VideoTrack v-if="screen && !screen?.muted" :track="screen" :key="screen.sid"></VideoTrack>
-  <span class="hidden group-hover:block px-2 py-1 text-slate-400 text-xs absolute bottom-0 left-0">{{member.display_name}}</span>
+  <AudioTrack v-if="microphone" :key="microphone.sid" :track="microphone"/>
+  <AudioTrack v-if="screenAudio" :key="screenAudio.sid" :track="screenAudio"/>
+  <VideoTrack v-if="camera && !camera?.muted" :key="camera.sid" :track="camera"/>
+  <VideoTrack v-if="screen && !screen?.muted" :key="screen.sid" :track="screen"/>
+  <span class="hidden group-hover:block px-2 py-1 text-slate-400 text-xs absolute bottom-0 left-0">{{member?.display_name}}</span>
   <UIcon
       v-show="isMuted"
       name="i-lucide-mic-off"
