@@ -1,4 +1,5 @@
 # Chat
+[![Deploy](https://github.com/bugcolony/chatapp/actions/workflows/deploy.yml/badge.svg?branch=main)](https://github.com/bugcolony/chatapp/actions/workflows/deploy.yml)
 
 A full-stack real-time chat application with a Nuxt SPA, Laravel API, and a small Go
 WebSocket gateway. The default deployment runs behind Traefik and uses
