@@ -4,6 +4,9 @@ namespace App\Services\Auth\Social;
 
 use App\Enums\AuthProvider;
 use App\Enums\SystemRole;
+use App\Exceptions\DisallowedSocialEmail;
+use App\Exceptions\UnverifiedSocialEmail;
+use App\Models\SocialAccount;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -23,13 +26,7 @@ abstract class SocialAuth implements SocialAuthInterface
     public function handleCallback(SocialiteUser $callbackUser): User
     {
         return DB::transaction(function () use ($callbackUser): User {
-            $user = User::query()->firstOrCreate([
-                'email' => $callbackUser->getEmail(),
-            ], [
-                'name' => $callbackUser->getNickname() ?: $callbackUser->getName(),
-                'email_verified_at' => now(),
-                'password' => Str::password(),
-            ]);
+            $user = $this->resolveUser($callbackUser);
 
             $user->socialAccounts()->updateOrCreate([
                 'user_id' => $user->id,
@@ -46,5 +43,59 @@ abstract class SocialAuth implements SocialAuthInterface
 
             return $user;
         });
+    }
+
+    abstract protected function hasVerifiedEmail(SocialiteUser $callbackUser): bool;
+
+    /**
+     * @throws UnverifiedSocialEmail|DisallowedSocialEmail
+     */
+    private function resolveUser(SocialiteUser $callbackUser): User
+    {
+        $account = SocialAccount::query()
+            ->where('provider', $this->provider)
+            ->where('provider_id', $callbackUser->getId())
+            ->first();
+
+        if ($account?->user !== null) {
+            return $account->user;
+        }
+
+        if (! $this->hasVerifiedEmail($callbackUser)) {
+            throw UnverifiedSocialEmail::forProvider($this->provider);
+        }
+
+        $email = $callbackUser->getEmail();
+        $existing = User::query()->where('email', $email)->first();
+
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $this->guardAgainstBlockedDomain($email);
+
+        return User::query()->create([
+            'email' => $email,
+            'name' => $callbackUser->getName() ?: $callbackUser->getNickname(),
+            'email_verified_at' => now(),
+            'password' => Str::password(),
+        ]);
+    }
+
+    /**
+     * @throws DisallowedSocialEmail
+     */
+    private function guardAgainstBlockedDomain(string $email): void
+    {
+        $domain = Str::lower(Str::afterLast($email, '@'));
+
+        $blocked = array_map(
+            static fn (string $blockedDomain): string => Str::lower($blockedDomain),
+            config('signup.blocked_email_domains', []),
+        );
+
+        if (in_array($domain, $blocked, true)) {
+            throw DisallowedSocialEmail::forDomain($domain);
+        }
     }
 }

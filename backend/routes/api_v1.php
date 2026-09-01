@@ -9,10 +9,15 @@ use App\Http\Controllers\Api\V1\PreferenceController;
 use App\Http\Controllers\Api\V1\RTCController;
 use App\Http\Controllers\Api\V1\ServerController;
 use App\Http\Controllers\Api\V1\ServerInviteController;
+use App\Http\Controllers\Api\V1\UserAvatarController;
+use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\UserOnboardingController;
 use App\Http\Controllers\Api\V1\VoiceChannelController;
 use App\Http\Controllers\Api\V1\VoicePresenceController;
 use App\Http\Controllers\Api\V1\WebSocketTicketController;
 use App\Http\Middleware\ChannelMember;
+use App\Http\Middleware\EnsureOnboarded;
+use App\Http\Middleware\NotBanned;
 use App\Http\Middleware\ServerMember;
 use Illuminate\Support\Facades\Route;
 
@@ -24,15 +29,18 @@ Route::group(['middleware' => 'throttle:5,1'], static function () {
 
 Route::post('/rtc/events', RTCController::class);
 
-Route::group(['middleware' => 'auth:sanctum'], static function () {
+Route::middleware(['auth:sanctum', NotBanned::class, EnsureOnboarded::class])->group(function () {
     Route::prefix('me')->group(static function () {
-        Route::get('', [AuthController::class, 'user']);
+        Route::get('', [AuthController::class, 'user'])->withoutMiddleware([EnsureOnboarded::class]);
+        Route::post('', [UserController::class, 'update']);
+        Route::post('onboarding', UserOnboardingController::class)
+            ->withoutMiddleware([EnsureOnboarded::class]);
         Route::prefix('preferences')->group(static function () {
             Route::post('pinned-servers', [PreferenceController::class, 'pinnedServers']);
         });
     });
 
-    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/logout', [AuthController::class, 'logout'])->withoutMiddleware([EnsureOnboarded::class]);
     Route::post('/ws/ticket', WebSocketTicketController::class)->middleware(['throttle:10,1']);
     //    Route::post('/friends', [FriendController::class, 'index']
     Route::prefix('servers')->group(static function () {
@@ -63,6 +71,9 @@ Route::group(['middleware' => 'auth:sanctum'], static function () {
 
     Route::get('/messages/{message}/attachment', MessageAttachmentController::class)
         ->name('messages.attachment');
+
+    Route::get('/users/{user}/avatar', UserAvatarController::class)
+        ->name('users.avatar');
 
     Route::prefix('invites')->group(static function () {
         Route::post('{code}/join', [ServerInviteController::class, 'join']);

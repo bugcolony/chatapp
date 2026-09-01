@@ -17,7 +17,7 @@ onMounted(() => {
     await until(() => authStore.isResolved).toBe(true);
 
     if (authStore.isAuthenticated) {
-      await navigateTo("/app");
+      await navigateTo(authStore.needsOnboarding ? "/onboarding" : "/app");
     } else {
       await navigateTo("/login");
     }

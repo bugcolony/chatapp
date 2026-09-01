@@ -10,6 +10,7 @@ export const useAuthStore = defineStore("auth", {
     isGuest: (state) => !state.user,
     isResolved: (state) => state.bootstrapped,
     authId: (state) => state.user?.id,
+    needsOnboarding: (state) => Boolean(state.user) && !state.user.onboarded,
   },
 
   actions: {
@@ -49,6 +50,40 @@ export const useAuthStore = defineStore("auth", {
       } finally {
         this.loading = false;
       }
+    },
+
+    async updateProfile({ name, avatar = null, remove_avatar = false }) {
+      const { $apiFetch } = useNuxtApp();
+      let body = { name };
+
+      if (avatar) {
+        body = new FormData();
+        body.append("name", name);
+        body.append("avatar", avatar, avatar.name);
+      } else if (remove_avatar) {
+        body.remove_avatar = true;
+      }
+
+      const res = await $apiFetch("/me", { method: "POST", body });
+      const user = res?.data ?? res;
+
+      this.user = { ...this.user, ...user };
+
+      return this.user;
+    },
+
+    async completeOnboarding(username) {
+      const { $apiFetch } = useNuxtApp();
+
+      const res = await $apiFetch("/me/onboarding", {
+        method: "POST",
+        body: { username },
+      });
+      const user = res?.data ?? res;
+
+      this.user = { ...this.user, ...user };
+
+      return this.user;
     },
 
     async logout() {

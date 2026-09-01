@@ -10,10 +10,12 @@ class MessageAttachmentResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'name' => $this->original_name,
-            'size' => $this->size,
-            'mime_type' => $this->mime_type,
-            'is_image' => $this->isPreviewableImage(),
+            'name' => $this->file->original_name,
+            'size' => $this->file->size,
+            'mime_type' => $this->file->mime_type,
+            'is_image' => $this->file->isImage(),
+            'width' => $this->file->width,
+            'height' => $this->file->height,
             'url' => route('messages.attachment', $this->message_id, absolute: false),
         ];
     }

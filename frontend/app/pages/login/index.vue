@@ -9,6 +9,28 @@ definePageMeta({
 
 const auth = useAuthStore();
 const config = useRuntimeConfig();
+const route = useRoute();
+
+const AUTH_ERROR_MESSAGES = {
+	auth_failed: "We could not complete the sign in. Please try again.",
+	access_denied: "You cancelled the sign in before it finished.",
+	email_unverified:
+		"Your provider did not share a verified email address. Verify your email with them, then try again.",
+	email_not_allowed:
+		"That email address cannot be used here. Sign in with a provider account that uses your real address.",
+};
+
+const authError = computed(() => {
+	const code = route.query.error;
+
+	if (typeof code !== "string") {
+		return null;
+	}
+
+	return Object.hasOwn(AUTH_ERROR_MESSAGES, code)
+		? AUTH_ERROR_MESSAGES[code]
+		: AUTH_ERROR_MESSAGES.auth_failed;
+});
 
 const loginBackgroundStyle = {
 	backgroundImage: 'url("/images/bgpatt.webp")',
@@ -115,6 +137,15 @@ async function onSubmit(payload) {
 			class="w-full sm:max-w-xl h-full bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm p-6 sm:p-18 flex flex-col shadow-xl border-l border-gray-200 dark:border-gray-800"
 		>
       <h1 class="font-semibold text-white text-center text-6xl my-20">Chat App</h1>
+			<UAlert
+				v-if="authError"
+				class="mb-6"
+				color="error"
+				variant="subtle"
+				icon="i-lucide-triangle-alert"
+				title="Sign in failed"
+				:description="authError"
+			/>
 			<UAuthForm
 				ref="form"
 				:schema="schema"

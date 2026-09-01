@@ -26,7 +26,7 @@ class MessageController extends Controller
         return $channel
             ->messages()
             ->latest('id')
-            ->with(['attachment', 'author', 'mentions'])
+            ->with(['attachment.file', 'author', 'mentions'])
             ->cursorPaginate(12)
             ->toResourceCollection();
     }

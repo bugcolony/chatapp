@@ -7,7 +7,7 @@ use App\Exceptions\ChannelDoesNotSupportMessages;
 use App\Models\Channel;
 use App\Models\Message;
 use App\Models\User;
-use App\Services\Message\MessageAttachmentStorage;
+use App\Services\File\FileStorage;
 use App\Services\Message\MessageParser;
 use App\Services\Message\ParserContext;
 use Illuminate\Http\UploadedFile;
@@ -17,7 +17,7 @@ use Throwable;
 final readonly class CreateMessage
 {
     public function __construct(
-        private MessageAttachmentStorage $attachmentStorage,
+        private FileStorage $fileStorage,
     )
     {
     }
@@ -36,8 +36,8 @@ final readonly class CreateMessage
             throw new ChannelDoesNotSupportMessages("channel with type {$channel->type->value} cant receive messages");
         }
 
-        $storedAttachment = $upload
-            ? $this->attachmentStorage->store($upload, $channel)
+        $storedFile = $upload
+            ? $this->fileStorage->storeToDisk($upload, "message-attachments/{$channel->server_id}/{$channel->id}")
             : null;
 
         try {
@@ -45,7 +45,7 @@ final readonly class CreateMessage
                 $author,
                 $channel,
                 $content,
-                $storedAttachment,
+                $storedFile,
             ): Message {
                 $message = $channel->messages()->create([
                     'content' => $content,
@@ -58,21 +58,23 @@ final readonly class CreateMessage
                     $this->insertMentions($message);
                 }
 
-                if ($storedAttachment) {
-                    $message->attachment()->create($storedAttachment->toArray());
+                if ($storedFile) {
+                    $file = $this->fileStorage->persistToDb($storedFile);
+
+                    $message->attachment()->create(['file_id' => $file->id]);
                 }
 
                 return $message;
             });
         } catch (Throwable $exception) {
-            if ($storedAttachment) {
-                $this->attachmentStorage->delete($storedAttachment);
+            if ($storedFile) {
+                $this->fileStorage->delete($storedFile);
             }
 
             throw $exception;
         }
 
-        $message->load(['attachment', 'author']);
+        $message->load(['attachment.file', 'author']);
         MessageCreated::dispatch($message);
 
         return $message;

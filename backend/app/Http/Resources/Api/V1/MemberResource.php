@@ -13,6 +13,7 @@ class MemberResource extends JsonResource
             'id' => $this->id,
             'server_id' => $this->server_id,
             'display_name' => $this->nickname ?? $this->user->name,
+            'avatar' => $this->user->avatarUrl(),
             'status' => 'offline',
             'user' => UserResource::make($this->whenLoaded('user')),
         ];

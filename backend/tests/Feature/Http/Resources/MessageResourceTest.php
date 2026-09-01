@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Resources\Api\V1\MessageResource;
+use App\Models\File;
 use App\Models\Message;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -31,14 +32,18 @@ test('message attachments include persisted metadata and a protected url', funct
     $author = User::factory()->create();
     $message = Message::factory()->from($author)->create();
 
-    $message->attachment()->create([
+    $file = File::create([
         'disk' => 'local',
-        'path' => 'message-attachments/photo.jpg',
+        'source_path' => 'message-attachments/photo.jpg',
         'original_name' => 'photo.jpg',
         'mime_type' => 'image/jpeg',
         'size' => 2048,
+        'width' => 640,
+        'height' => 480,
     ]);
-    $message->load(['attachment', 'author']);
+
+    $message->attachment()->create(['file_id' => $file->id]);
+    $message->load(['attachment.file', 'author']);
 
     $data = (new MessageResource($message))->response()->getData(true)['data'];
 
@@ -47,6 +52,8 @@ test('message attachments include persisted metadata and a protected url', funct
         'size' => 2048,
         'mime_type' => 'image/jpeg',
         'is_image' => true,
+        'width' => 640,
+        'height' => 480,
         'url' => "/api/v1/messages/{$message->id}/attachment",
     ]);
 });

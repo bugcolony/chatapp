@@ -12,10 +12,18 @@ export function serverAvatarSrc(server) {
   return server.image ?? `https://api.dicebear.com/9.x/icons/svg?scale=70&backgroundColor=${PALETTE}&backgroundType=gradientLinear&seed=${server.id}`
 }
 
+export function userAvatarSrc(user) {
+  if (!user) return ''
+
+  return user.avatar
+    ? useRuntimeConfig().public.apiBase + user.avatar
+    : fallbackAvatarSrc(user.name ?? user.display_name ?? '')
+}
+
 export function fallbackAvatarSrc(name) {
   return `https://api.dicebear.com/9.x/initials/svg?seed=${name}&scale=70&backgroundType=gradientLinear`
 }
 
 export function useServerAvatar() {
-  return { serverAvatarSrc, fallbackAvatarSrc }
+  return { serverAvatarSrc, userAvatarSrc, fallbackAvatarSrc }
 }

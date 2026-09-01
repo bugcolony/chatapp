@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -23,6 +23,8 @@ class User extends Authenticatable
         'email',
         'password',
         'email_verified_at',
+        'username',
+        'onboarded_at'
     ];
 
     protected $hidden = [
@@ -35,6 +37,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'banned_at' => 'datetime',
+            'onboarded_at' => 'datetime',
         ];
     }
 
@@ -83,5 +87,27 @@ class User extends Authenticatable
     public function messageMentions(): HasMany
     {
         return $this->hasMany(MessageMention::class);
+    }
+
+    public function avatar(): BelongsTo
+    {
+        return $this->belongsTo(File::class, 'avatar_file_id');
+    }
+
+    public function avatarUrl(): ?string
+    {
+        return $this->avatar_file_id
+            ? route('users.avatar', ['user' => $this->id, 'v' => $this->avatar_file_id], absolute: false)
+            : null;
+    }
+
+    public function isBanned(): bool
+    {
+        return $this->banned_at !== null;
+    }
+
+    public function isOnboarded(): bool
+    {
+        return $this->onboarded_at !== null && $this->username !== null;
     }
 }
