@@ -14,24 +14,25 @@ class MessageAttachmentController extends Controller
     {
         Gate::authorize('view', $message);
 
-        $message->loadMissing('attachment');
-        $attachment = $message->attachment;
+        $message->loadMissing('attachment.file');
+        $file = $message->attachment?->file;
 
-        abort_unless($attachment, 404);
+        abort_unless($file, 404);
 
-        $disk = Storage::disk($attachment->disk);
+        $disk = Storage::disk($file->disk);
+        $path = $file->servedPath();
 
-        abort_unless($disk->exists($attachment->path), 404);
+        abort_unless($disk->exists($path), 404);
 
         return $disk->response(
-            $attachment->path,
-            $attachment->original_name,
+            $path,
+            $file->original_name,
             [
                 'Cache-Control' => 'private, max-age=3600',
-                'Content-Type' => $attachment->mime_type,
+                'Content-Type' => $file->mime_type,
                 'X-Content-Type-Options' => 'nosniff',
             ],
-            $attachment->isPreviewableImage() ? 'inline' : 'attachment',
+            $file->isImage() ? 'inline' : 'attachment',
         );
     }
 }

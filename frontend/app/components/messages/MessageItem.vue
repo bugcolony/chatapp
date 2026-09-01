@@ -5,7 +5,7 @@ import emojiRegex from 'emoji-regex'
 import MarkdownIt from 'markdown-it'
 import ServerInvitePreview from '~/components/invites/ServerInvitePreview.vue'
 import MessageAttachment from '~/components/messages/MessageAttachment.vue'
-import { fallbackAvatarSrc } from '~/composables/useServerAvatar.js'
+import { userAvatarSrc } from '~/composables/useServerAvatar.js'
 import { useAppUrl } from '~/composables/useAppUrl.js'
 import { extractInviteCodes } from '~/utils/extractInviteCodes.js'
 import { installMessageMentionMarkdown } from '~/utils/messageMention.js'
@@ -106,8 +106,8 @@ function countEmojiOnlyMessage(content) {
   >
     <div class="flex gap-3">
       <UAvatar
-        :src="fallbackAvatarSrc(message.author)"
-        :alt="message.author"
+        :src="userAvatarSrc(message.author)"
+        :alt="message.author.name"
         size="md"
         class="shrink-0 rounded-xl ring-1 ring-white/10"
       />
@@ -115,7 +115,7 @@ function countEmojiOnlyMessage(content) {
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-baseline gap-2">
           <h3 class="text-sm font-black text-white">
-            {{ message.author }}
+            {{ message.author.name }}
           </h3>
           <span class="text-xs text-slate-500">{{ created }}</span>
         </div>

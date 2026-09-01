@@ -30,16 +30,16 @@ class DemoFixtureManager
     public const string OWNER_EMAIL = 'example1@example.com';
 
     public const array USERS = [
-        ['name' => 'Example User 1', 'email' => self::OWNER_EMAIL],
-        ['name' => 'Example User 2', 'email' => 'example2@example.com'],
-        ['name' => 'Example User 3', 'email' => 'example3@example.com'],
-        ['name' => 'Example User 4', 'email' => 'example4@example.com'],
-        ['name' => 'Example User 5', 'email' => 'example5@example.com'],
-        ['name' => 'Example User 6', 'email' => 'example6@example.com'],
-        ['name' => 'Example User 7', 'email' => 'example7@example.com'],
-        ['name' => 'Example User 8', 'email' => 'example8@example.com'],
-        ['name' => 'Example User 9', 'email' => 'example9@example.com'],
-        ['name' => 'Example User 10', 'email' => 'example10@example.com'],
+        ['name' => 'Example User 1', 'username' => 'example_user_1', 'email' => self::OWNER_EMAIL],
+        ['name' => 'Example User 2', 'username' => 'example_user_2', 'email' => 'example2@example.com'],
+        ['name' => 'Example User 3', 'username' => 'example_user_3', 'email' => 'example3@example.com'],
+        ['name' => 'Example User 4', 'username' => 'example_user_4', 'email' => 'example4@example.com'],
+        ['name' => 'Example User 5', 'username' => 'example_user_5', 'email' => 'example5@example.com'],
+        ['name' => 'Example User 6', 'username' => 'example_user_6', 'email' => 'example6@example.com'],
+        ['name' => 'Example User 7', 'username' => 'example_user_7', 'email' => 'example7@example.com'],
+        ['name' => 'Example User 8', 'username' => 'example_user_8', 'email' => 'example8@example.com'],
+        ['name' => 'Example User 9', 'username' => 'example_user_9', 'email' => 'example9@example.com'],
+        ['name' => 'Example User 10', 'username' => 'example_user_10', 'email' => 'example10@example.com'],
     ];
 
     public const array SERVERS = [
@@ -53,6 +53,7 @@ class DemoFixtureManager
                 ['name' => 'lfg', 'type' => 'text', 'parent' => 'Games'],
                 ['name' => 'clips', 'type' => 'text', 'parent' => 'Games'],
                 ['name' => 'voice-chat', 'type' => 'voice', 'parent' => 'Games'],
+                ['name' => 'voice-chat chat', 'type' => 'voice_text', 'parent' => 'voice-chat'],
             ],
             'messages' => [
                 'Welcome to the Gaming Lounge!',
@@ -101,6 +102,7 @@ class DemoFixtureManager
                 ['name' => 'production', 'type' => 'text', 'parent' => 'Studio'],
                 ['name' => 'gear', 'type' => 'text', 'parent' => 'Studio'],
                 ['name' => 'voice-jam', 'type' => 'voice', 'parent' => 'Studio'],
+                ['name' => 'voice-jam chat', 'type' => 'voice_text', 'parent' => 'voice-jam'],
             ],
             'messages' => [
                 'Welcome to the Music Crew!',
@@ -170,8 +172,10 @@ class DemoFixtureManager
             $user = User::query()->firstOrNew(['email' => $spec['email']]);
             $attributes = [
                 'name' => $spec['name'],
+                'username' => $spec['username'],
                 'email' => $spec['email'],
                 'email_verified_at' => $user->email_verified_at ?? now(),
+                'onboarded_at' => $user->onboarded_at ?? now(),
                 'deleted_at' => null,
             ];
 
@@ -334,6 +338,7 @@ class DemoFixtureManager
                 ->all();
         $attachments = DB::table('message_attachments')
             ->join('messages', 'messages.id', '=', 'message_attachments.message_id')
+            ->join('files', 'files.id', '=', 'message_attachments.file_id')
             ->where(function (Builder $query) use ($serverIds, $channelIds, $userIds): void {
                 $query->whereIn('messages.user_id', $userIds);
 
@@ -345,14 +350,17 @@ class DemoFixtureManager
                     $query->orWhereIn('messages.channel_id', $channelIds);
                 }
             })
-            ->select(['message_attachments.disk', 'message_attachments.path'])
+            ->select(['files.id', 'files.disk', 'files.source_path'])
             ->lockForUpdate()
             ->get()
             ->map(static fn (object $attachment): array => [
+                'id' => (int) $attachment->id,
                 'disk' => (string) $attachment->disk,
-                'path' => (string) $attachment->path,
+                'path' => (string) $attachment->source_path,
             ])
             ->all();
+
+        $fileIds = array_column($attachments, 'id');
 
         if ($serverIds !== [] || $serverRoleIds !== []) {
             DB::table('servers')
@@ -394,6 +402,10 @@ class DemoFixtureManager
             'user_id' => $userIds,
         ]);
 
+        if ($fileIds !== []) {
+            DB::table('files')->whereIn('id', $fileIds)->delete();
+        }
+
         if ($channelIds !== []) {
             DB::table('channels')->whereIn('parent_id', $channelIds)->update(['parent_id' => null]);
             DB::table('channels')->whereIn('id', $channelIds)->delete();
@@ -431,7 +443,7 @@ class DemoFixtureManager
     }
 
     /**
-     * @param  array<int, array{disk: string, path: string}>  $attachments
+     * @param  array<int, array{id: int, disk: string, path: string}>  $attachments
      */
     private function deleteAttachmentFiles(array $attachments): void
     {

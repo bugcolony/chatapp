@@ -2,6 +2,7 @@
 
 use App\Events\MessageCreated;
 use App\Models\Channel;
+use App\Models\File;
 use App\Models\Member;
 use App\Models\Message;
 use App\Models\MessageAttachment;
@@ -39,13 +40,15 @@ function seedMessageAttachmentUsage(
         ->from($user)
         ->create();
 
-    $message->attachment()->create([
+    $file = File::create([
         'disk' => 'local',
-        'path' => 'existing/'.fake()->uuid(),
+        'source_path' => 'existing/'.fake()->uuid(),
         'original_name' => 'existing.bin',
         'mime_type' => 'application/octet-stream',
         'size' => $size,
     ]);
+
+    $message->attachment()->create(['file_id' => $file->id]);
 
     if ($softDeleted) {
         $message->delete();
@@ -80,12 +83,12 @@ test('a message can contain one image attachment without text', function () {
 
     expect($message->content)->toBeNull()
         ->and($attachment->message_id)->toBe($message->id)
-        ->and($attachment->disk)->toBe('local')
-        ->and($attachment->original_name)->toBe('weekend.png')
-        ->and($attachment->mime_type)->toBe('image/png')
-        ->and($attachment->size)->toBeGreaterThan(0);
+        ->and($attachment->file->disk)->toBe('local')
+        ->and($attachment->file->original_name)->toBe('weekend.png')
+        ->and($attachment->file->mime_type)->toBe('image/png')
+        ->and($attachment->file->size)->toBeGreaterThan(0);
 
-    Storage::disk('local')->assertExists($attachment->path);
+    Storage::disk('local')->assertExists($attachment->file->source_path);
 
     $response
         ->assertJsonPath('data.client_id', 123)
@@ -182,8 +185,9 @@ test('a user can fill the attachment quota to exactly ten million bytes', functi
 
     $usedBytes = (int) MessageAttachment::query()
         ->join('messages', 'messages.id', '=', 'message_attachments.message_id')
+        ->join('files', 'files.id', '=', 'message_attachments.file_id')
         ->where('messages.user_id', $user->id)
-        ->sum('message_attachments.size');
+        ->sum('files.size');
 
     expect($usedBytes)->toBe(10_000_000);
 });

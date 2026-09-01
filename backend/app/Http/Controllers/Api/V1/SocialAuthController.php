@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\AuthProvider;
 use App\Enums\FrontendPath;
+use App\Exceptions\DisallowedSocialEmail;
+use App\Exceptions\UnverifiedSocialEmail;
 use App\Http\Controllers\Controller;
 use App\Services\Auth\Social\SocialAuthFactory;
 use Illuminate\Http\RedirectResponse;
@@ -37,8 +39,19 @@ class SocialAuthController extends Controller
 
             return redirect(url()->query($this->frontendUrl().FrontendPath::AuthCallback->value));
 
+        } catch (UnverifiedSocialEmail $e) {
+            Log::warning($e->getMessage(), ['provider' => $provider->value]);
+
+            return $this->redirectOnFailure('email_unverified');
+        } catch (DisallowedSocialEmail $e) {
+            Log::warning($e->getMessage(), ['provider' => $provider->value]);
+
+            return $this->redirectOnFailure('email_not_allowed');
         } catch (Throwable $e) {
-            Log::error($e->getMessage(), $e->getTrace());
+            Log::error('Social authentication failed.', [
+                'provider' => $provider->value,
+                'exception' => $e,
+            ]);
 
             return $this->redirectOnFailure();
         }
@@ -52,9 +65,9 @@ class SocialAuthController extends Controller
         return redirect(url()->query($this->frontendUrl().FrontendPath::Login->value, $params));
     }
 
-    protected function redirectOnFailure(): RedirectResponse
+    protected function redirectOnFailure(string $code = 'auth_failed'): RedirectResponse
     {
-        return redirect(url()->query($this->frontendUrl().FrontendPath::Login->value, ['error' => 'Authentication failed']));
+        return redirect(url()->query($this->frontendUrl().FrontendPath::Login->value, ['error' => $code]));
     }
 
     protected function frontendUrl(): string

@@ -34,8 +34,9 @@ class MessagePolicy
 
         $usedBytes = MessageAttachment::query()
             ->join('messages', 'messages.id', '=', 'message_attachments.message_id')
+            ->join('files', 'files.id', '=', 'message_attachments.file_id')
             ->where('messages.user_id', $user->id)
-            ->sum('message_attachments.size');
+            ->sum('files.size');
 
         return (int) $usedBytes + $attachmentBytes <= 10_000_000;
     }

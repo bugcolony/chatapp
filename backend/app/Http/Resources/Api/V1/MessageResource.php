@@ -21,7 +21,7 @@ class MessageResource extends JsonResource
         return [
             'id' => $this->id,
             'mine' => $this->user_id === auth()->id(),
-            'author' => $this->author->name,
+            'author' => UserResource::make($this->author),
             'mentions' => MessageMentionResource::collection($this->whenLoaded('mentions')),
             'created_at' => $this->created_at,
             'message' => $this->content,

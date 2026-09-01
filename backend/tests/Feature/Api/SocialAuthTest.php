@@ -72,7 +72,10 @@ test('callback creates a new user and social account and logs the user in with t
 
     $user = User::where('email', 'test@example.com')->first();
     expect($user)->not->toBeNull()
-        ->and($user->name)->toBe('testuser')
+        ->and($user->name)->toBe('Test User')
+        ->and($user->username)->toBeNull()
+        ->and($user->onboarded_at)->toBeNull()
+        ->and($user->isOnboarded())->toBeFalse()
         ->and($user->email_verified_at)->not->toBeNull()
         ->and($user->hasRole(SystemRole::User->value))->toBeTrue();
 
@@ -166,6 +169,87 @@ test('callback redirects to login when the provider request fails', function () 
 
     $response = $this->get('/auth/github/callback');
 
-    $response->assertRedirect(config('app.frontend_url').'/login?error=Authentication%20failed');
+    $response->assertRedirect(config('app.frontend_url').'/login?error=auth_failed');
     $this->assertGuest('web');
+});
+
+test('callback matches the existing account by provider id when the provider email changed', function () {
+    $user = User::factory()->create(['email' => 'old@example.com']);
+
+    SocialAccount::factory()->create([
+        'user_id' => $user->id,
+        'provider' => AuthProvider::GitHub,
+        'provider_id' => '4242',
+    ]);
+
+    mockGithubCallbackProvider(mockSocialiteUser(4242, 'Same Person', 'new@example.com', 'sameperson', 'token', 'refresh'));
+
+    $response = $this->get('/auth/github/callback');
+
+    $response->assertRedirect(config('app.frontend_url').'/login/process');
+    $this->assertAuthenticatedAs($user, 'web');
+
+    expect(User::count())->toBe(1)
+        ->and(SocialAccount::count())->toBe(1)
+        ->and($user->refresh()->email)->toBe('old@example.com');
+});
+
+test('callback refuses to create an account without a verified email', function () {
+    mockGithubCallbackProvider(mockSocialiteUser(555, 'No Email', null, 'noemail', 'token', 'refresh'));
+
+    $response = $this->get('/auth/github/callback');
+
+    $response->assertRedirect(config('app.frontend_url').'/login?error=email_unverified');
+
+    $this->assertGuest('web');
+    expect(User::count())->toBe(0)
+        ->and(SocialAccount::count())->toBe(0);
+});
+
+test('a blocked email domain cannot create an account', function () {
+    config()->set('signup.blocked_email_domains', ['users.noreply.github.com']);
+
+    mockGithubCallbackProvider(mockSocialiteUser(818, 'Private Person', '818+ghost@USERS.NOREPLY.GITHUB.COM', 'ghost', 'token', 'refresh'));
+
+    $response = $this->get('/auth/github/callback');
+
+    $response->assertRedirect(config('app.frontend_url').'/login?error=email_not_allowed');
+    $this->assertGuest('web');
+
+    expect(User::count())->toBe(0)
+        ->and(SocialAccount::count())->toBe(0);
+});
+
+test('an existing account on a blocked domain can still sign in by provider id', function () {
+    config()->set('signup.blocked_email_domains', ['users.noreply.github.com']);
+
+    $user = User::factory()->create(['email' => '900+old@users.noreply.github.com']);
+    SocialAccount::factory()->create([
+        'user_id' => $user->id,
+        'provider' => AuthProvider::GitHub,
+        'provider_id' => '900',
+    ]);
+
+    mockGithubCallbackProvider(mockSocialiteUser(900, 'Old Person', '900+old@users.noreply.github.com', 'old', 'token', 'refresh'));
+
+    $this->get('/auth/github/callback')
+        ->assertRedirect(config('app.frontend_url').'/login/process');
+
+    $this->assertAuthenticatedAs($user, 'web');
+    expect(User::count())->toBe(1);
+});
+
+test('an existing account on a blocked domain can still sign in by email', function () {
+    config()->set('signup.blocked_email_domains', ['users.noreply.github.com']);
+
+    $user = User::factory()->create(['email' => '901+old@users.noreply.github.com']);
+
+    mockGithubCallbackProvider(mockSocialiteUser(901, 'Old Person', '901+old@users.noreply.github.com', 'old', 'token', 'refresh'));
+
+    $this->get('/auth/github/callback')
+        ->assertRedirect(config('app.frontend_url').'/login/process');
+
+    $this->assertAuthenticatedAs($user, 'web');
+    expect(User::count())->toBe(1)
+        ->and(SocialAccount::count())->toBe(1);
 });

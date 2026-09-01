@@ -4,6 +4,7 @@ use App\Enums\ChannelType;
 use App\Enums\SystemRole;
 use App\Models\Channel;
 use App\Models\ChannelPermissionOverride;
+use App\Models\File;
 use App\Models\Member;
 use App\Models\Message;
 use App\Models\Server;
@@ -55,13 +56,16 @@ function addDemoFixtureAttachment(
     string $contents = 'demo attachment',
 ): void {
     Storage::disk($disk)->put($path, $contents);
-    $message->attachment()->create([
+
+    $file = File::create([
         'disk' => $disk,
-        'path' => $path,
+        'source_path' => $path,
         'original_name' => basename($path),
         'mime_type' => 'application/octet-stream',
         'size' => strlen($contents),
     ]);
+
+    $message->attachment()->create(['file_id' => $file->id]);
 }
 
 test('demo fixtures can be provisioned repeatedly', function () {
