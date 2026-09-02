@@ -22,6 +22,10 @@ class MessagePolicy
      */
     public function store(User $user, Channel $channel, int $attachmentBytes = 0): bool
     {
+        if ($channel->server === null) {
+            return false;
+        }
+
         $ctx = ServerPermissionContext::for($user, $channel->server);
 
         if (! $ctx->resolveChannel($channel)->can(AppPermission::SEND_MESSAGES)) {
@@ -43,6 +47,10 @@ class MessagePolicy
 
     public function view(User $user, Message $message): bool
     {
+        if ($message->server === null) {
+            return false;
+        }
+
         try {
             $ctx = ServerPermissionContext::for($user, $message->server);
 

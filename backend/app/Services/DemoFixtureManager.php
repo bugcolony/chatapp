@@ -119,6 +119,11 @@ class DemoFixtureManager
         ],
     ];
 
+    public static function isDemoEmail(?string $email): bool
+    {
+        return $email !== null && in_array($email, array_column(self::USERS, 'email'), true);
+    }
+
     public function provision(): void
     {
         $this->withLifecycleLock(function (): void {

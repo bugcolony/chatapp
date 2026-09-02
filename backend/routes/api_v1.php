@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\UserOnboardingController;
 use App\Http\Controllers\Api\V1\VoiceChannelController;
 use App\Http\Controllers\Api\V1\VoicePresenceController;
 use App\Http\Controllers\Api\V1\WebSocketTicketController;
+use App\Http\Middleware\AccountClosed;
 use App\Http\Middleware\ChannelMember;
 use App\Http\Middleware\EnsureOnboarded;
 use App\Http\Middleware\NotBanned;
@@ -29,10 +30,13 @@ Route::group(['middleware' => 'throttle:5,1'], static function () {
 
 Route::post('/rtc/events', RTCController::class);
 
-Route::middleware(['auth:sanctum', NotBanned::class, EnsureOnboarded::class])->group(function () {
+Route::middleware(['auth:sanctum', AccountClosed::class, NotBanned::class, EnsureOnboarded::class])->group(function () {
     Route::prefix('me')->group(static function () {
         Route::get('', [AuthController::class, 'user'])->withoutMiddleware([EnsureOnboarded::class]);
         Route::post('', [UserController::class, 'update']);
+        Route::delete('', [UserController::class, 'destroy'])
+            ->withoutMiddleware([EnsureOnboarded::class])
+            ->middleware(['throttle:3,1']);
         Route::post('onboarding', UserOnboardingController::class)
             ->withoutMiddleware([EnsureOnboarded::class]);
         Route::prefix('preferences')->group(static function () {

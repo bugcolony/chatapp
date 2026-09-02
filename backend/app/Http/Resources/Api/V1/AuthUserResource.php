@@ -18,6 +18,8 @@ class AuthUserResource extends JsonResource
             'email' => $this->email,
             'avatar' => $this->avatarUrl(),
             'onboarded' => $this->isOnboarded(),
+            'owned_servers_count' => $this->ownedServers()->count(),
+            'is_demo' => $this->isDemo(),
             'status' => 'online', // status preference
         ];
     }

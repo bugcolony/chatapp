@@ -93,6 +93,17 @@ export const useAuthStore = defineStore("auth", {
       this.setGuest();
     },
 
+    async deleteAccount(username) {
+      const { $apiFetch } = useNuxtApp();
+
+      await $apiFetch("/me", {
+        method: "DELETE",
+        body: { username },
+      });
+
+      this.setGuest();
+    },
+
     setAuthenticated(user) {
       this.user = user;
       this.bootstrapped = true;

@@ -85,7 +85,7 @@ const menuItems = computed(() => [
       />
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-2">
-          <span class="truncate text-sm font-bold" :class="{'text-white': user?.status === 'online'}">{{ displayName }}</span>
+          <span class="truncate text-sm font-bold text-wrap" :class="{'text-white': user?.status === 'online'}">{{ displayName }}</span>
         </div>
         <div class="flex gap-1">
           <UChip standalone inset class="" :ui="{base: chipStatusColor(user?.status)}"  />
