@@ -7,7 +7,7 @@ import {
   messageEmojiExtension,
   messageEmojiMenuItems,
 } from '~/utils/messageEmojiExtension'
-import { fallbackAvatarSrc } from '~/composables/useServerAvatar.js'
+import { userAvatarSrc } from '~/composables/useServerAvatar.js'
 import { isPreviewableImageType } from '~/utils/messageAttachment.js'
 import { createMessageMentionExtension } from '~/utils/messageMention.js'
 import { createKlipyGifMarkdown } from '~/utils/klipyGif.js'
@@ -82,7 +82,7 @@ const members = computed(() => {
       id: item.user.id,
       label: item.display_name,
       avatar: {
-        src: fallbackAvatarSrc(item.display_name),
+        src: userAvatarSrc(item),
         loading: 'lazy'
       }
     }

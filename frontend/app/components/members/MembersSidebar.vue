@@ -4,7 +4,7 @@ import { storeToRefs } from 'pinia'
 import CurrentUserCard from '~/components/account/CurrentUserCard.vue'
 import AppSidebar from '~/components/layout/AppSidebar.vue'
 import { useChatUIStore } from '~/stores/chatUIStore.js'
-import { fallbackAvatarSrc } from '~/composables/useServerAvatar.js'
+import {userAvatarSrc} from '~/composables/useServerAvatar.js'
 
 const store = useServerStore()
 const uiStore = useChatUIStore()
@@ -112,7 +112,7 @@ function chipStatusColor(status) {
               :ui="{ base: 'justify-start' }"
             >
               <UAvatar
-                :src="fallbackAvatarSrc(member.display_name)"
+                :src="userAvatarSrc(member)"
                 size="lg"
                 :chip="{
                   inset: true,
@@ -125,7 +125,7 @@ function chipStatusColor(status) {
 <!--                <span class="rounded-full bg-white/8 px-2 py-0.5 text-xs font-bold uppercase tracking-[0.14em] text-slate-400">-->
 <!--                  {{ member.role ?? 'dog' }}-->
 <!--                </span>-->
-                  <UIcon v-if="activeServer.owner_id === member.user.id" class="bg-indigo-900" name="i-lucide-crown" title="Server owner"/>
+                  <UIcon v-if="activeServer?.owner_id === member.user.id" class="bg-indigo-900" name="i-lucide-crown" title="Server owner"/>
                 </span>
                 <span class="block truncate text-xs text-slate-500">{{ member.status }}</span>
               </span>

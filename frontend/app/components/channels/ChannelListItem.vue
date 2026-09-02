@@ -1,5 +1,5 @@
 <script setup lang="js">
-import {fallbackAvatarSrc} from "~/composables/useServerAvatar.js";
+import {userAvatarSrc} from "~/composables/useServerAvatar.js";
 
 const props = defineProps({
   item: { type: Object, required: true },
@@ -94,7 +94,7 @@ const contextMenuItems = computed(() => [
       <ul v-if="item.type === 'voice' && voiceParticipants.length > 0" class="pl-10 py-2">
         <li v-for="member in voiceParticipants" :key="member.id" class="flex items-center py-1">
           <UAvatar
-              :src="fallbackAvatarSrc(member.display_name)"
+              :src="userAvatarSrc(member)"
               size="xs"
           />
           <span class="ml-2 text-sm">{{member.display_name}}</span>

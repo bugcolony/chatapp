@@ -33,6 +33,6 @@ test('message created payload carries every routing field the browser filters on
         ->and($operation->target->channelId)->toBe(34)
         ->and($operation->target->senderId)->toBe(78)
         ->and($operation->data['id'])->toBe(56)
-        ->and($operation->data['author'])->toBe('ada')
+        ->and($operation->data['author']['name'])->toBe('ada')
         ->and($operation->data['message'])->toBe('hello');
 });

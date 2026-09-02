@@ -284,7 +284,11 @@ export const useServerStore = defineStore('server', {
             const newMessage = reactive({
                 id: null,
                 client_id: clientId,
-                author: auth.user?.name ?? 'You',
+                author: {
+                    name: auth.user?.name ?? 'You',
+                    avatar: auth.user?.avatar ?? null,
+                    id: auth.user?.id ?? null
+                },
                 created_at: new Date().toLocaleDateString([], {hour: 'numeric', minute: '2-digit', hour12: false}),
                 message,
                 attachment: optimisticAttachment,

@@ -6,6 +6,7 @@ use App\Enums\BroadcastOperation;
 use App\Enums\ChannelType;
 use App\Http\Resources\Api\V1\MessageAttachmentResource;
 use App\Http\Resources\Api\V1\MessageMentionResource;
+use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Channel;
 use App\Models\Message;
 use JsonSerializable;
@@ -31,7 +32,7 @@ final readonly class GatewayEvent implements JsonSerializable
                 'mentions' => $message->mentions
                     ? MessageMentionResource::collection($message->mentions)->resolve()
                     : null,
-                'author' => $message->author->name,
+                'author' => UserResource::make($message->author)->resolve(),
                 'message' => $message->content,
                 'attachment' => $message->attachment
                     ? MessageAttachmentResource::make($message->attachment)->resolve()

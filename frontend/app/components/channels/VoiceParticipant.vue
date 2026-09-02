@@ -2,7 +2,7 @@
 
 import AudioTrack from "~/components/channels/AudioTrack.vue";
 import VideoTrack from "~/components/channels/VideoTrack.vue";
-import {fallbackAvatarSrc} from "~/composables/useServerAvatar.js";
+import {userAvatarSrc} from "~/composables/useServerAvatar.js";
 import {useVoiceStore} from "~/stores/voiceStore.js";
 
 const props = defineProps({
@@ -37,7 +37,7 @@ const isMuted = computed(() => props.participant.local ? !microphoneEnabled.valu
     :class="participant.isSpeaking && !microphone?.muted ? 'ring-4 ring-indigo-400' : 'ring-1 ring-slate-700/30'"
 >
   <UAvatar
-      :src="fallbackAvatarSrc(member?.display_name)"
+      :src="userAvatarSrc(member)"
       class="size-20"
       :class="{'hidden': isStreaming}"
   />
