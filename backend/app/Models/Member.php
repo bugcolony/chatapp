@@ -19,6 +19,13 @@ class Member extends Model
 
     protected $guarded = [];
 
+    protected function casts(): array
+    {
+        return [
+            'left_at' => 'datetime',
+        ];
+    }
+
     public function server(): BelongsTo
     {
         return $this->belongsTo(Server::class);

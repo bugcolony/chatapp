@@ -8,6 +8,7 @@ const open = defineModel('open', { type: Boolean, default: false })
 
 const auth = useAuthStore()
 const socket = useSocketStore()
+const voice = useVoiceStore()
 
 const sections = [
   {
@@ -62,6 +63,7 @@ function close() {
 }
 
 async function handleLogout() {
+  await voice.disconnectAll()
   socket.disconnect()
   await auth.logout()
 

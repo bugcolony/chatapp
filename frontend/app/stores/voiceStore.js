@@ -119,6 +119,10 @@ export const useVoiceStore = defineStore('voice', () => {
         await teardown(record)
     }
 
+    async function disconnectAll() {
+        await Promise.all(Array.from(connections.values()).map((record) => teardown(record)))
+    }
+
     async function disconnectOthers(channelId) {
         const others = Array.from(connections.values()).filter((record) => record.channelId !== channelId)
 
@@ -418,6 +422,7 @@ export const useVoiceStore = defineStore('voice', () => {
         participants,
         connect,
         disconnect,
+        disconnectAll,
         toggleMicrophone,
         toggleCamera,
         toggleScreen,

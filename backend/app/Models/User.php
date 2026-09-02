@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\DemoFixtureManager;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -39,6 +40,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'banned_at' => 'datetime',
             'onboarded_at' => 'datetime',
+            'closed_at' => 'datetime',
         ];
     }
 
@@ -109,5 +111,29 @@ class User extends Authenticatable
     public function isOnboarded(): bool
     {
         return $this->onboarded_at !== null && $this->username !== null;
+    }
+
+    public function isClosed(): bool
+    {
+        return $this->closed_at !== null;
+    }
+
+    public function isDemo(): bool
+    {
+        return DemoFixtureManager::isDemoEmail($this->email);
+    }
+
+    public function deleteAvatar(): void
+    {
+        $avatar = $this->avatar;
+
+        if ($avatar === null) {
+            return;
+        }
+
+        $this->avatar()->dissociate();
+        $this->save();
+
+        $avatar->delete();
     }
 }
