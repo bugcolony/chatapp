@@ -96,6 +96,11 @@ class User extends Authenticatable
         return $this->belongsTo(File::class, 'avatar_file_id');
     }
 
+    public function channelReads(): HasMany
+    {
+        return $this->hasMany(ChannelRead::class);
+    }
+
     public function avatarUrl(): ?string
     {
         return $this->avatar_file_id

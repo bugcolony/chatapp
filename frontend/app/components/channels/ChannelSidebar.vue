@@ -116,6 +116,7 @@ async function handleSelectChannel(channelId) {
 watchEffect(() => {
   if (activeServerId.value && !serverChannels.value[activeServerId.value]) {
     store.fetchServerChannels(activeServerId.value)
+    store.fetchServerUnread(activeServerId.value)
   }
 })
 

@@ -64,6 +64,8 @@ final readonly class CreateMessage
                     $message->attachment()->create(['file_id' => $file->id]);
                 }
 
+                new AckMessage()->execute($channel, $message);
+
                 return $message;
             });
         } catch (Throwable $exception) {

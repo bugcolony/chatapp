@@ -5,6 +5,7 @@ namespace App\Actions\User;
 use App\Models\Member;
 use App\Models\User;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class CompleteOnboarding
@@ -12,11 +13,11 @@ class CompleteOnboarding
     public function execute(User $user, string $username): User
     {
         try {
-            $user->update([
+            DB::transaction(fn () => $user->update([
                 'username' => $username,
                 'name' => $username,
                 'onboarded_at' => now(),
-            ]);
+            ]));
         } catch (QueryException $e) {
             if (! $this->isIntegrityConstraintViolation($e)) {
                 throw $e;

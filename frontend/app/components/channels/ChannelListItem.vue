@@ -10,7 +10,7 @@ const emit = defineEmits(['select', 'add-channel', 'edit', 'delete'])
 
 const isCategory = computed(() => props.item.type === 'category')
 const store = useServerStore()
-const {activeServerId, serverMembers, voiceChannelParticipants} = storeToRefs(store)
+const {activeServerId, serverMembers, voiceChannelParticipants, channelLastReadId, channelLastMessageId} = storeToRefs(store)
 const voiceParticipants = computed(() => {
   if (props.item.type === 'voice') {
     if (voiceChannelParticipants.value.has(props.item.id)) {
@@ -22,6 +22,10 @@ const voiceParticipants = computed(() => {
 
   return []
 })
+const lastReadId = computed(() => channelLastReadId.value.get(props.item.message_channel_id) ?? 0)
+const lastMessageId = computed(() => channelLastMessageId.value.get(props.item.message_channel_id) ?? 0)
+const hasUnreadMessages = computed(() => lastReadId.value < lastMessageId.value)
+
 const contextMenuItems = computed(() => [
   [
     {
@@ -71,11 +75,12 @@ const contextMenuItems = computed(() => [
         block
         color="neutral"
         variant="ghost"
-        class="group flex w-full items-center gap-2.5 rounded-lg px-4 py-1 text-left"
+        class="group flex w-full items-center gap-2.5 rounded-lg px-4 py-1 text-left relative"
         :class="active ? 'bg-white text-slate-950 shadow-lg shadow-black/20' : 'text-slate-300 hover:bg-white/8 hover:text-white'"
         :ui="{ base: 'justify-start' }"
         @click="$emit('select', item.id)"
       >
+        <UIcon v-show="hasUnreadMessages" name="i-lucide-dot" class="size-7 absolute -left-2" title="Unread messages" />
         <UIcon
           :name="item.icon"
           class="size-4 shrink-0"

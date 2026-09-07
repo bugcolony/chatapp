@@ -58,6 +58,11 @@ class Channel extends Model
         return $this->belongsTo(self::class, 'parent_id');
     }
 
+    public function channelReads(): HasMany
+    {
+        return $this->hasMany(ChannelRead::class);
+    }
+
     public function voiceTextChannel(): HasOne
     {
         return $this->hasOne(self::class, 'parent_id')

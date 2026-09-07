@@ -21,14 +21,17 @@ const serverId = props.serverId
 const store = useServerStore()
 const authStore = useAuthStore()
 const socketStore = useSocketStore()
-const {channelMessages, channelMeta, channelsLoading, channelTypingPresence, serverMembers} = storeToRefs(store)
+const {channelMessages, channelMeta, channelsLoading, channelTypingPresence, serverMembers, channelLastReadId} = storeToRefs(store)
 const toast = useToast()
+const focused = useWindowFocus()
 
 const activeChannelTypingPresence = computed(() => channelTypingPresence.value.get(channelId) ?? null)
 const typingMembers = computed(() => serverMembers.value[serverId]?.filter(m => activeChannelTypingPresence.value?.has(m.user.id) && m.user.id !== authStore.authId))
 const typingMemberTitle = computed(() => typingMembers.value?.map((m) => m.display_name).join(', '))
 const activeMessageBucket = computed(() => channelMessages.value.get(channelId) ?? null)
 const hasMore = computed(() => channelMeta.value.get(channelId)?.has_more_pages ?? false)
+const lastMessageId = computed(() => activeMessageBucket.value ? Array.from(activeMessageBucket.value.values()).findLast((m) => m.author.id !== authStore.authId)?.id ?? 0 : 0)
+const lastReadId = computed(() => channelLastReadId.value.get(channelId) ?? 0)
 const channelLoading = computed(() => channelsLoading.value.has(channelId))
 const draft = ref('')
 const scrollArea = useTemplateRef('chatWindow')
@@ -40,6 +43,11 @@ const previousScrollHeight = ref(0)
 const scrollBehavior = computed(() => smooth.value ? 'smooth' : 'auto')
 const scrollAdjusted = ref(false)
 const pendingHistoryScroll = ref(null)
+const canAck = computed(() =>
+    focused.value
+    && arrivedState.bottom
+    && lastReadId.value < lastMessageId.value
+)
 
 const {y, arrivedState} = useScroll(scrollArea, {
   behavior: scrollBehavior,
@@ -181,6 +189,15 @@ watchThrottled(draft, (message) => {
   leading: true,
   trailing: false
 })
+
+watchDebounced([canAck, lastMessageId], () => {
+  if (canAck.value) {
+    store.markMessageRead(channelId, lastMessageId.value)
+  }
+}, {
+  debounce: 2000,
+  immediate: true
+})
 </script>
 
 <template>
@@ -255,6 +272,12 @@ watchThrottled(draft, (message) => {
 <!--          title="Mounted channel id"-->
 <!--        >-->
 <!--          {{ channelId }}-->
+<!--        </div>-->
+<!--        <div-->
+<!--          class="size-6 shrink-0 rounded-full bg-white text-center text-black"-->
+<!--          title="Mounted channel id"-->
+<!--        >-->
+<!--          {{ lastMessageId }}-->
 <!--        </div>-->
 <!--      </div>-->
 <!--    </DevOnly>-->
