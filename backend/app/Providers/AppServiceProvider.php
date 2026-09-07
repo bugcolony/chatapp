@@ -9,8 +9,11 @@ use App\Services\Gateway\RedisWebSocketTicketStore;
 use App\Services\Gateway\WebSocketTicketStore;
 use App\Services\RTC\RedisVoiceChannelPresence;
 use App\Services\RTC\VoiceChannelPresence;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Redis\Factory as RedisFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -53,5 +56,8 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Model::preventLazyLoading(! $this->app->isProduction());
+
+        RateLimiter::for('summary', static fn (Request $request) => Limit::perMinutes(10, 2)
+            ->by($request->user()?->id ?? $request->ip()));
     }
 }

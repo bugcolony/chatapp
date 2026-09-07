@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import MessageComposer from '~/components/messages/MessageComposer.vue'
 import MessageItem from '~/components/messages/MessageItem.vue'
 import MessageSkeleton from '~/components/messages/MessageSkeleton.vue'
+import MessageSummary from '~/components/messages/MessageSummary.vue'
 
 const props = defineProps({
   channelId: {
@@ -202,86 +203,6 @@ watchDebounced([canAck, lastMessageId], () => {
 
 <template>
   <section class="relative flex min-h-0 min-w-0 flex-1 flex-col">
-
-<!--    <DevOnly>-->
-<!--      <div class="absolute left-2/6 top-3 grid w-1/6 grid-cols-2 gap-2 whitespace-nowrap">-->
-<!--        <div><span class="font-bold text-pink-600">Y:</span> {{ y }}</div>-->
-<!--        <div><span class="font-bold text-indigo-600">SHold:</span> {{ previousScrollHeight }}</div>-->
-<!--        <div><span class="font-bold text-green-700">SHc:</span> {{ scrollArea?.scrollHeight }}</div>-->
-<!--        <div><span class="font-bold text-cyan-800">STop:</span> {{ scrollArea?.scrollTop }}</div>-->
-<!--      </div>-->
-
-<!--      <div class="absolute left-1/2 top-3 flex w-1/6 items-center gap-2 font-bold">-->
-<!--        <div-->
-<!--          class="size-6 shrink-0 rounded-full bg-pink-500 text-center"-->
-<!--          :class="{ grayscale: !viewingHistory }"-->
-<!--          title="Away from bottom"-->
-<!--        >-->
-<!--          J-->
-<!--        </div>-->
-<!--        <div>-->
-<!--          <div-->
-<!--            class="mb-1 size-6 rounded-full bg-blue-500 text-center"-->
-<!--            :class="{ grayscale: !arrivedState.top }"-->
-<!--            title="Chat Top"-->
-<!--          >-->
-<!--            T-->
-<!--          </div>-->
-<!--          <div-->
-<!--            class="size-6 rounded-full bg-purple-500 text-center"-->
-<!--            :class="{ grayscale: !arrivedState.bottom }"-->
-<!--            title="Chat Bottom"-->
-<!--          >-->
-<!--            B-->
-<!--          </div>-->
-<!--        </div>-->
-<!--        <div>-->
-<!--          <div-->
-<!--            class="mb-1 size-6 rounded-full bg-fuchsia-500 text-center"-->
-<!--            :class="{ grayscale: !hasMore }"-->
-<!--            title="Partially loaded"-->
-<!--          >-->
-<!--            P-->
-<!--          </div>-->
-<!--          <div-->
-<!--            class="size-6 rounded-full bg-emerald-500 text-center"-->
-<!--            :class="{ grayscale: hasMore }"-->
-<!--            title="Fully loaded"-->
-<!--          >-->
-<!--            D-->
-<!--          </div>-->
-<!--        </div>-->
-<!--        <div>-->
-<!--          <div-->
-<!--            class="mb-1 size-6 shrink-0 rounded-full bg-red-600 text-center"-->
-<!--            :class="{ grayscale: scrollAdjusted }"-->
-<!--            title="Settling channel scroll"-->
-<!--          >-->
-<!--            S-->
-<!--          </div>-->
-<!--          <div-->
-<!--            class="size-6 shrink-0 rounded-full bg-yellow-500 text-center"-->
-<!--            :class="channelLoading ? 'animate-pulse' : 'grayscale'"-->
-<!--            title="Fetching"-->
-<!--          >-->
-<!--            L-->
-<!--          </div>-->
-<!--        </div>-->
-<!--        <div-->
-<!--          class="size-6 shrink-0 rounded-full bg-white text-center text-black"-->
-<!--          title="Mounted channel id"-->
-<!--        >-->
-<!--          {{ channelId }}-->
-<!--        </div>-->
-<!--        <div-->
-<!--          class="size-6 shrink-0 rounded-full bg-white text-center text-black"-->
-<!--          title="Mounted channel id"-->
-<!--        >-->
-<!--          {{ lastMessageId }}-->
-<!--        </div>-->
-<!--      </div>-->
-<!--    </DevOnly>-->
-
     <div ref="chatWindow" class="min-h-0 flex-1 overflow-y-auto">
       <div ref="messageLane" class="flex min-h-full flex-col justify-end gap-1 px-4 py-4">
         <div v-if="hasMore">
@@ -304,6 +225,12 @@ watchDebounced([canAck, lastMessageId], () => {
       >
         <UIcon class="animate-pulse" name="i-lucide-pencil-line" />
         <span class="font-bold">{{ typingMemberTitle }}</span> {{typingMembers.length > 1 ? "are" : "is"}} typing</div>
+
+      <MessageSummary
+        :channel-id="channelId"
+        class="absolute -top-7 right-3 z-10 sm:right-4"
+      />
+
       <MessageComposer
         v-model="draft"
         class="mb-10"

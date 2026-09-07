@@ -21,7 +21,10 @@ export const useServerStore = defineStore('server', {
         voiceChannelParticipants: new Map(),
         channelLastReadId: new Map(),
         channelLastMessageId: new Map(),
-        serverUnread: {}
+        serverUnread: {},
+        channelSummaries: new Map(),
+        channelSummariesLoading: new Set(),
+        channelSummaryErrors: new Map()
     }),
     getters: {
         activeServer: (state) => state.servers.find((s) => s.id === state.activeServerId) ?? null,
@@ -407,6 +410,40 @@ export const useServerStore = defineStore('server', {
                 this.readChannelMessage(channelId, messageId)
             } catch (e) {
                 console.error(e)
+            }
+        },
+
+        async fetchChannelSummary(channelId, range) {
+            const key = `${channelId}:${range}`
+
+            if (this.channelSummariesLoading.has(key)) {
+                return
+            }
+
+            try {
+                const {$apiFetch} = useNuxtApp();
+
+                this.channelSummariesLoading.add(key)
+                this.channelSummaryErrors.delete(key)
+
+                const res = await $apiFetch(`/channels/${channelId}/summary`, {
+                    method: 'POST',
+                    body: {
+                        range,
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    }
+                })
+
+                this.channelSummaries.set(key, res)
+            } catch (e) {
+                const status = e?.response?.status ?? e?.statusCode
+
+                this.channelSummaryErrors.set(key, status === 429
+                    ? 'Rate limit reached. Please try again in a moment.'
+                    : (e?.data?.message ?? 'Could not generate a summary.'))
+                console.error(e)
+            } finally {
+                this.channelSummariesLoading.delete(key)
             }
         },
 

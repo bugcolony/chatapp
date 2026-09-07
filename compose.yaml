@@ -78,6 +78,8 @@ x-laravel-environment: &laravel-environment
   LIVEKIT_URL: ${LIVEKIT_URL:-}
   LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:?LIVEKIT_API_KEY is required}
   LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?LIVEKIT_API_SECRET is required}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
   VIEW_COMPILED_PATH: /tmp/laravel/views
 
 x-laravel-service: &laravel-service
