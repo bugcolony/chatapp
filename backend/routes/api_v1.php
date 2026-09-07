@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ChannelController;
+use App\Http\Controllers\Api\V1\ReadStateController;
 use App\Http\Controllers\Api\V1\MemberController;
 use App\Http\Controllers\Api\V1\MessageAttachmentController;
 use App\Http\Controllers\Api\V1\MessageController;
@@ -34,6 +35,7 @@ Route::middleware(['auth:sanctum', AccountClosed::class, NotBanned::class, Ensur
     Route::prefix('me')->group(static function () {
         Route::get('', [AuthController::class, 'user'])->withoutMiddleware([EnsureOnboarded::class]);
         Route::post('', [UserController::class, 'update']);
+//        Route::get('unread', [ReadStateController::class, 'index']);
         Route::delete('', [UserController::class, 'destroy'])
             ->withoutMiddleware([EnsureOnboarded::class])
             ->middleware(['throttle:3,1']);
@@ -59,6 +61,7 @@ Route::middleware(['auth:sanctum', AccountClosed::class, NotBanned::class, Ensur
             Route::get('/voice-presence', VoicePresenceController::class);
             Route::post('/invites', [ServerInviteController::class, 'store'])->middleware(['throttle:10,1']);
             Route::post('/leave', [MemberController::class, 'destroy']);
+            Route::get('/unread', [ReadStateController::class, 'serverUnread']);
         });
     });
 
@@ -70,6 +73,7 @@ Route::middleware(['auth:sanctum', AccountClosed::class, NotBanned::class, Ensur
             Route::get('/messages', [MessageController::class, 'index']);
             Route::post('/messages', [MessageController::class, 'store']);
             Route::post('/credentials', VoiceChannelController::class);
+            Route::post('/messages/{message}/read', [ReadStateController::class, 'store'])->scopeBindings();
         });
     });
 

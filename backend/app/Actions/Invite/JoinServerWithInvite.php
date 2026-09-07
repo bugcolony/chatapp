@@ -5,6 +5,7 @@ namespace App\Actions\Invite;
 use App\Models\Member;
 use App\Models\ServerInvite;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class JoinServerWithInvite
 {
@@ -15,6 +16,7 @@ class JoinServerWithInvite
             'server_id' => $invite->server_id,
         ], [
             'left_at' => null,
+            'baseline_message_id' => DB::table('messages')->max('id') ?? 0,
         ]);
 
         if ($membership->wasRecentlyCreated) {

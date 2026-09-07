@@ -55,6 +55,7 @@ onMounted(async () => {
   }
 
   await store.fetchServers()
+  // await store.fetchUserUnread()
   await connect()
 
   handlePendingInvite()

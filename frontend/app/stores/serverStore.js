@@ -18,7 +18,10 @@ export const useServerStore = defineStore('server', {
         channelsLoading: new Set(),
         friends: [],
         channelTypingPresence: new Map(),
-        voiceChannelParticipants: new Map()
+        voiceChannelParticipants: new Map(),
+        channelLastReadId: new Map(),
+        channelLastMessageId: new Map(),
+        serverUnread: {}
     }),
     getters: {
         activeServer: (state) => state.servers.find((s) => s.id === state.activeServerId) ?? null,
@@ -50,6 +53,34 @@ export const useServerStore = defineStore('server', {
             } catch (error) {
                 console.error("Error fetching servers:", error);
                 throw error;
+            }
+        },
+
+        async fetchUserUnread() {
+            try {
+                const {$apiFetch} = useNuxtApp()
+
+                const res = await $apiFetch('/me/unread')
+
+                this.serverUnread = res.data
+            } catch (e) {
+                console.error(e)
+            }
+        },
+
+        async fetchServerUnread(serverId) {
+            try {
+                const {$apiFetch} = useNuxtApp()
+
+                const res = await $apiFetch(`/servers/${serverId}/unread`)
+
+                const readList = (res ?? []).map((c) => [c.channel_id, c.last_read_id])
+                const lastList = (res ?? []).map((c) => [c.channel_id, c.last_message_id])
+
+                this.channelLastReadId = new Map([...this.channelLastReadId, ...readList])
+                this.channelLastMessageId = new Map([...this.channelLastMessageId, ...lastList])
+            } catch (e) {
+                console.error(e)
             }
         },
 
@@ -161,6 +192,8 @@ export const useServerStore = defineStore('server', {
                     this.channelMessages.get(channelId).set(message.id, newMessage)
                 }
             }
+
+            this.setLastMessage(channelId, message.id)
         },
 
         upsertServerChannel(serverId, channel) {
@@ -323,6 +356,8 @@ export const useServerStore = defineStore('server', {
                 newMessage.attachment = serverMessage.attachment ?? null
                 newMessage.created_at = serverMessage.created_at ?? newMessage.created_at
                 newMessage.status = 'sent'
+
+                this.readChannelMessage(channelId, newMessage.id)
             }).catch(err => {
                 console.error(err)
                 newMessage.status = 'failed'
@@ -359,6 +394,28 @@ export const useServerStore = defineStore('server', {
             } catch (e) {
                 console.error(e)
             }
+        },
+
+        async markMessageRead(channelId, messageId) {
+            try {
+                const {$apiFetch} = useNuxtApp();
+
+                await $apiFetch(`/channels/${channelId}/messages/${messageId}/read`, {
+                    method: 'POST'
+                })
+
+                this.readChannelMessage(channelId, messageId)
+            } catch (e) {
+                console.error(e)
+            }
+        },
+
+        readChannelMessage(channelId, messageId) {
+            this.channelLastReadId.set(channelId, Math.max(messageId, this.channelLastReadId.get(channelId) ?? 0))
+        },
+
+        setLastMessage(channelId, messageId) {
+            this.channelLastMessageId.set(channelId, Math.max(messageId, this.channelLastMessageId.get(channelId) ?? 0))
         },
 
         async leaveServer(id) {
