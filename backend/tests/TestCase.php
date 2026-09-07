@@ -7,19 +7,19 @@ use RuntimeException;
 
 abstract class TestCase extends BaseTestCase
 {
-    protected function setUp(): void
+    protected function refreshApplication(): void
     {
-        $connection = getenv('DB_CONNECTION');
-        $database = getenv('DB_DATABASE');
+        parent::refreshApplication();
 
-        if ($connection !== 'sqlite' || $database !== ':memory:') {
+        $connection = config('database.default');
+        $database = config("database.connections.{$connection}.database");
+
+        if ($connection !== 'pgsql' || $database !== 'chat_test') {
             throw new RuntimeException(sprintf(
-                'Refusing to run tests against DB_CONNECTION=%s DB_DATABASE=%s. Tests require in-memory SQLite.',
-                $connection === false ? '<unset>' : $connection,
-                $database === false ? '<unset>' : $database,
+                'Refusing to run tests against connection=%s database=%s. Tests require the pgsql chat_test database.',
+                $connection,
+                $database === '' ? '<unset>' : $database,
             ));
         }
-
-        parent::setUp();
     }
 }

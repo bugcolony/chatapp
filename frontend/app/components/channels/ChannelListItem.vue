@@ -80,7 +80,7 @@ const contextMenuItems = computed(() => [
         :ui="{ base: 'justify-start' }"
         @click="$emit('select', item.id)"
       >
-        <UIcon v-show="hasUnreadMessages" name="i-lucide-dot" class="size-7 absolute -left-2" title="Unread messages"></UIcon>
+        <UIcon v-show="hasUnreadMessages" name="i-lucide-dot" class="size-7 absolute -left-2" title="Unread messages" />
         <UIcon
           :name="item.icon"
           class="size-4 shrink-0"

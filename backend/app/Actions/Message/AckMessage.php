@@ -3,41 +3,38 @@
 namespace App\Actions\Message;
 
 use App\Models\Channel;
-use App\Models\ChannelRead;
 use App\Models\Member;
 use App\Models\Message;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 class AckMessage
 {
     public function execute(Channel $channel, Message $message): void
     {
-        $channelRead = ChannelRead::where([
-            'channel_id' => $channel->id,
-            'user_id' => auth()->user()->id,
-        ])->first();
+        $userId = auth()->user()->id;
 
-        if ($channelRead) {
-            $channelRead->update([
-                'last_read_id' => max($message->id, $channelRead->last_read_id)
-            ]);
-
-            return;
-        }
-
-        $membership = Member::where([
-            'server_id' => $channel->server_id,
-            'user_id' => auth()->user()->id,
-        ])->first();
+        $membership = Member::query()
+            ->where('server_id', $channel->server_id)
+            ->where('user_id', $userId)
+            ->first();
 
         if (!$membership) {
             throw new RuntimeException('Not a valid channel');
         }
 
-        ChannelRead::create([
-            'channel_id' => $channel->id,
-            'user_id' => auth()->user()->id,
-            'last_read_id' => max($membership->baseline_message_id, $message->id),
+        DB::statement(<<<'SQL'
+            insert into channel_reads (channel_id, user_id, last_read_id, created_at, updated_at)
+            values (?, ?, greatest(?::bigint, ?::bigint), now(), now())
+            on conflict (user_id, channel_id) do update
+            set last_read_id = greatest(channel_reads.last_read_id, ?::bigint),
+                updated_at = now()
+        SQL, [
+            $channel->id,
+            $userId,
+            $membership->baseline_message_id,
+            $message->id,
+            $message->id,
         ]);
     }
 }
