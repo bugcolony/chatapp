@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ChannelController;
+use App\Http\Controllers\Api\V1\ChannelSummaryController;
 use App\Http\Controllers\Api\V1\ReadStateController;
 use App\Http\Controllers\Api\V1\MemberController;
 use App\Http\Controllers\Api\V1\MessageAttachmentController;
@@ -74,6 +75,7 @@ Route::middleware(['auth:sanctum', AccountClosed::class, NotBanned::class, Ensur
             Route::post('/messages', [MessageController::class, 'store']);
             Route::post('/credentials', VoiceChannelController::class);
             Route::post('/messages/{message}/read', [ReadStateController::class, 'store'])->scopeBindings();
+            Route::post('/summary', ChannelSummaryController::class)->middleware(['throttle:summary']);
         });
     });
 
