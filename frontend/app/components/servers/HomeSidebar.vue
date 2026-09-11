@@ -13,8 +13,8 @@ const { leftSidebarOpen } = storeToRefs(uiStore)
 const tab = ref('servers')
 
 const tabs = [
-  { id: 'servers', label: 'Servers', icon: 'i-lucide-server' },
-  { id: 'dms', label: 'DMs', icon: 'i-lucide-message-circle' },
+  { label: 'Servers', icon: 'i-lucide-server', value: 'servers' },
+  { label: 'Messages', icon: 'i-lucide-message-circle', value: 'dms' },
 ]
 
 function handleSelectServer(id) {
@@ -30,22 +30,14 @@ function handleSelectServer(id) {
     width="308px"
   >
     <template #header>
-      <div class="flex w-full items-center gap-1 rounded-2xl border border-white/8 bg-slate-950/55 p-1">
-        <UButton
-          v-for="t in tabs"
-          :key="t.id"
-          :icon="t.icon"
-          block
-          color="neutral"
-          variant="ghost"
-          class="flex-1 gap-2 rounded-xl px-2 py-1.5 text-sm font-bold transition"
-          :class="tab === t.id ? 'bg-white text-slate-950 shadow-lg shadow-black/20 hover:bg-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'"
-          :ui="{ base: 'justify-center' }"
-          @click="tab = t.id"
-        >
-          {{ t.label }}
-        </UButton>
-      </div>
+      <UTabs
+        v-model="tab"
+        :items="tabs"
+        :content="false"
+        color="neutral"
+        size="sm"
+        class="w-full"
+      />
     </template>
 
     <div

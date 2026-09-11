@@ -55,6 +55,7 @@ onMounted(async () => {
   }
 
   await store.fetchServers()
+  await store.fetchFriends()
   // await store.fetchUserUnread()
   await connect()
 

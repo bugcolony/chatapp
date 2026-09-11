@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ChannelController;
 use App\Http\Controllers\Api\V1\ChannelSummaryController;
+use App\Http\Controllers\Api\V1\FriendController;
 use App\Http\Controllers\Api\V1\ReadStateController;
 use App\Http\Controllers\Api\V1\MemberController;
 use App\Http\Controllers\Api\V1\MessageAttachmentController;
@@ -49,7 +50,6 @@ Route::middleware(['auth:sanctum', AccountClosed::class, NotBanned::class, Ensur
 
     Route::post('/logout', [AuthController::class, 'logout'])->withoutMiddleware([EnsureOnboarded::class]);
     Route::post('/ws/ticket', WebSocketTicketController::class)->middleware(['throttle:10,1']);
-    //    Route::post('/friends', [FriendController::class, 'index']
     Route::prefix('servers')->group(static function () {
         Route::get('', [ServerController::class, 'index']);
         Route::post('', [ServerController::class, 'store']);
@@ -77,6 +77,14 @@ Route::middleware(['auth:sanctum', AccountClosed::class, NotBanned::class, Ensur
             Route::post('/messages/{message}/read', [ReadStateController::class, 'store'])->scopeBindings();
             Route::post('/summary', ChannelSummaryController::class)->middleware(['throttle:summary']);
         });
+    });
+
+    Route::prefix('friends')->group(static function () {
+        Route::get('', [FriendController::class, 'index']);
+        Route::post('', [FriendController::class, 'store'])->middleware(['throttle:10,1']);
+        Route::post('{friend}/accept', [FriendController::class, 'accept']);
+        Route::delete('{friend}', [FriendController::class, 'destroy']);
+        Route::post('{friend}/block', [FriendController::class, 'block']);
     });
 
     Route::get('/messages/{message}/attachment', MessageAttachmentController::class)

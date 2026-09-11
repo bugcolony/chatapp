@@ -17,6 +17,7 @@ export const useServerStore = defineStore('server', {
         channelMeta: new Map(),
         channelsLoading: new Set(),
         friends: [],
+        incomingFriendRequests: [],
         channelTypingPresence: new Map(),
         voiceChannelParticipants: new Map(),
         channelLastReadId: new Map(),
@@ -95,9 +96,85 @@ export const useServerStore = defineStore('server', {
 
                 this.serverChannels[serverId] = res?.data ?? [];
             } catch (error) {
-                console.error("Error fetching serve channels:", error);
+                console.error("Error fetching server channels:", error);
                 throw error;
             }
+        },
+
+        async fetchFriends() {
+            try {
+                const {$apiFetch} = useNuxtApp();
+
+                const res = await $apiFetch("friends");
+
+                this.friends = res?.friends ?? [];
+                this.incomingFriendRequests = res?.incoming ?? [];
+            } catch (error) {
+                console.error("Error fetching friend list", error);
+            }
+        },
+
+        dropFriend(userId) {
+            this.friends = this.friends.filter((f) => f.id !== userId);
+            this.incomingFriendRequests = this.incomingFriendRequests.filter((f) => f.id !== userId);
+        },
+
+        addFriend(friend) {
+            this.dropFriend(friend.id);
+            this.friends = [...this.friends, friend].sort((a, b) => a.name.localeCompare(b.name));
+        },
+
+        async sendFriendRequest(username) {
+            const {$apiFetch} = useNuxtApp();
+
+            const res = await $apiFetch("friends", {method: "POST", body: {username}});
+
+            if (res.accepted) {
+                this.addFriend(res.friend);
+            }
+
+            return res;
+        },
+
+        async acceptFriendRequest(userId) {
+            const {$apiFetch} = useNuxtApp();
+            const friend = this.incomingFriendRequests.find((f) => f.id === userId);
+
+            try {
+                await $apiFetch(`friends/${userId}/accept`, {method: "POST"});
+            } catch (error) {
+                if (error?.statusCode === 404) {
+                    this.dropFriend(userId);
+                }
+
+                throw error;
+            }
+
+            if (friend) {
+                this.addFriend(friend);
+            }
+        },
+
+        async removeFriend(userId) {
+            const {$apiFetch} = useNuxtApp();
+
+            try {
+                await $apiFetch(`friends/${userId}`, {method: "DELETE"});
+            } catch (error) {
+                if (error?.statusCode !== 404) {
+                    throw error;
+                }
+            }
+
+            this.dropFriend(userId);
+        },
+
+        async blockFriend(userId) {
+            const {$apiFetch} = useNuxtApp();
+
+            await $apiFetch(`friends/${userId}/block`, {method: "POST"});
+
+            this.dropFriend(userId);
         },
 
         async fetchServerMembers(serverId) {
