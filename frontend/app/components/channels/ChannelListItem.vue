@@ -22,8 +22,8 @@ const voiceParticipants = computed(() => {
 
   return []
 })
-const lastReadId = computed(() => channelLastReadId.value.get(props.item.message_channel_id) ?? 0)
-const lastMessageId = computed(() => channelLastMessageId.value.get(props.item.message_channel_id) ?? 0)
+const lastReadId = computed(() => channelLastReadId.value.get(props.item.id) ?? 0)
+const lastMessageId = computed(() => channelLastMessageId.value.get(props.item.id) ?? 0)
 const hasUnreadMessages = computed(() => lastReadId.value < lastMessageId.value)
 
 const contextMenuItems = computed(() => [

@@ -31,7 +31,6 @@ test('channel created payload targets every client subscribed to the server', fu
             'id' => 56,
             'server_id' => 12,
             'parent_id' => 34,
-            'message_channel_id' => 56,
             'type' => ChannelType::Text,
             'name' => 'announcements',
         ]);

@@ -33,18 +33,7 @@ export const useServerStore = defineStore('server', {
         pinnedServerIds: (state) => state.servers.filter((s) => s.pin_position).map((el) => el.id) ?? [],
         activeServerChannels: (state) => state.serverChannels[state.activeServerId] ?? [],
         activeChannel: (state) => state.activeServerChannels.find(c => c.id === state.activeChannelId) ?? null,
-        activeMessageChannel: (state) => {
-            if (state.activeChannel?.type === 'text') {
-                return state.activeChannel
-            }
-
-            if (state.activeChannel?.type === 'voice') {
-                return state.activeServerChannels.find(c => c.type === 'voice_text' && c.parent_id === state.activeChannel.id) ?? null
-            }
-
-            return null
-        },
-        activeMessageChannelId: (state) => state.activeMessageChannel?.id ?? state.activeChannel?.message_channel_id,
+        activeMessageChannelId: (state) => ['text', 'voice'].includes(state.activeChannel?.type) ? state.activeChannel.id : null,
     },
     actions: {
         async fetchServers() {
@@ -300,7 +289,7 @@ export const useServerStore = defineStore('server', {
             const channels = this.serverChannels[serverId] ?? [];
 
             this.serverChannels[serverId] = channels
-                .filter(channel => channel.id !== channelId && !(channel.type === 'voice_text' && channel.parent_id === channelId))
+                .filter(channel => channel.id !== channelId)
                 .map(channel => channel.parent_id === channelId
                     ? {...channel, parent_id: null}
                     : channel);

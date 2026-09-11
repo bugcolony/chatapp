@@ -265,3 +265,16 @@ test('an unavailable attachment disk returns a controlled service response', fun
     expect(Message::query()->count())->toBe(0)
         ->and(MessageAttachment::query()->count())->toBe(0);
 });
+
+test('a message can be sent to a voice channel', function () {
+    ['server' => $server] = messageChannelFixture();
+    $voice = Channel::factory()->for($server)->voice()->create();
+
+    $this->postJson("/api/v1/channels/{$voice->id}/messages", [
+        'client_id' => 1,
+        'content' => 'anyone around?',
+    ])->assertCreated();
+
+    expect(Message::query()->sole()->channel_id)->toBe($voice->id)
+        ->and($voice->fresh()->last_message_id)->toBe(Message::query()->sole()->id);
+});

@@ -53,7 +53,6 @@ class DemoFixtureManager
                 ['name' => 'lfg', 'type' => 'text', 'parent' => 'Games'],
                 ['name' => 'clips', 'type' => 'text', 'parent' => 'Games'],
                 ['name' => 'voice-chat', 'type' => 'voice', 'parent' => 'Games'],
-                ['name' => 'voice-chat chat', 'type' => 'voice_text', 'parent' => 'voice-chat'],
             ],
             'messages' => [
                 'Welcome to the Gaming Lounge!',
@@ -102,7 +101,6 @@ class DemoFixtureManager
                 ['name' => 'production', 'type' => 'text', 'parent' => 'Studio'],
                 ['name' => 'gear', 'type' => 'text', 'parent' => 'Studio'],
                 ['name' => 'voice-jam', 'type' => 'voice', 'parent' => 'Studio'],
-                ['name' => 'voice-jam chat', 'type' => 'voice_text', 'parent' => 'voice-jam'],
             ],
             'messages' => [
                 'Welcome to the Music Crew!',

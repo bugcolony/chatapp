@@ -20,10 +20,6 @@ class DeleteChannel
                 $channel->children()->update(['parent_id' => null]);
             }
 
-            if ($channel->type === ChannelType::Voice) {
-                $channel->voiceTextChannel()->delete();
-            }
-
             $channel->delete();
         });
 

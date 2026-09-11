@@ -51,7 +51,6 @@ final readonly class GatewayEvent implements JsonSerializable
                 'id' => $channel->id,
                 'server_id' => $channel->server_id,
                 'parent_id' => $channel->parent_id,
-                'message_channel_id' => $channel->message_channel_id,
                 'type' => $channel->type,
                 'name' => $channel->name,
             ],
