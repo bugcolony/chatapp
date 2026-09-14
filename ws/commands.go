@@ -1,12 +1,20 @@
 package blueberry
 
-const (
-	OpClientActiveServer = 200
-	OpClientTypingStart  = 201
-	OpClientTypingStop   = 202
+import "encoding/json"
 
-	OpGatewayMemberStatusSnapshot = 300
-	OpGatewayMemberStatusChanged  = 301
+const (
+	OpMessageCreated       = 1
+	OpChannelCreated       = 2
+	OpChannelUpdated       = 3
+	OpChannelDeleted       = 4
+	OpVoiceUserJoined      = 5
+	OpVoiceUserLeft        = 6
+	OpVoiceChannelClosed   = 7
+	OpServerActive         = 200
+	OpTypingStart          = 201
+	OpTypingStop           = 202
+	OpMemberStatusSnapshot = 300
+	OpMemberStatus         = 301
 )
 
 const (
@@ -15,39 +23,55 @@ const (
 	TypePresenceExpirationTime = 6
 )
 
-type ClientCommand struct {
-	Op        int  `json:"op"`
-	ServerId  *int `json:"serverId"`
-	ChannelId *int `json:"channelId"`
+type EventData[T any] struct {
+	Op   int `json:"op"`
+	Data T   `json:"data"`
+}
+
+type Route struct {
+	ServerId int   `json:"server_id"`
+	UserIds  []int `json:"user_ids"`
+}
+
+type Gateway struct {
+	Route Route `json:"route"`
+}
+
+type EventPub struct {
+	Gateway Gateway         `json:"gateway"`
+	Client  json.RawMessage `json:"client"`
+}
+
+type ChannelRef struct {
+	ServerId  *int `json:"server_id"`
+	ChannelId *int `json:"channel_id"`
+}
+
+type TypingData struct {
+	ServerId  int `json:"server_id"`
+	ChannelId int `json:"channel_id"`
+	UserId    int `json:"user_id"`
+}
+
+type MemberState struct {
+	UserId int    `json:"user_id"`
+	Status string `json:"status"`
+}
+
+type MemberStatusData struct {
+	ServerId int    `json:"server_id"`
+	UserId   int    `json:"user_id"`
+	Status   string `json:"status"`
+}
+
+type MemberSnapshotData struct {
+	ServerId int           `json:"server_id"`
+	Members  []MemberState `json:"members"`
 }
 
 type SetActiveServerCommand struct {
 	client   *Client
 	serverId *int
-}
-
-type MemberState struct {
-	Id     int    `json:"id"`
-	Status string `json:"status"`
-}
-
-type ServerMemberSnapshotEvent struct {
-	Op             int                      `json:"op"`
-	TargetServerId int                      `json:"targetServerId"`
-	Data           map[string][]MemberState `json:"data"`
-}
-
-type ServerMemberStatusChangeEvent struct {
-	Op             int         `json:"op"`
-	TargetServerId int         `json:"targetServerId"`
-	Data           MemberState `json:"data"`
-}
-
-type TypePresenceEvent struct {
-	Op              int            `json:"op"`
-	TargetServerId  int            `json:"targetServerId"`
-	TargetChannelId int            `json:"targetChannelId"`
-	Data            map[string]any `json:"data"`
 }
 
 type SetTypingPresenceCommand struct {

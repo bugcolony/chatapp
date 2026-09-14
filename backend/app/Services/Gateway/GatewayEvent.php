@@ -15,7 +15,7 @@ final readonly class GatewayEvent implements JsonSerializable
 {
     public function __construct(
         public BroadcastOperation $op,
-        public BroadcastTarget $target,
+        public Route $route,
         public array $data
     ) {}
 
@@ -23,7 +23,7 @@ final readonly class GatewayEvent implements JsonSerializable
     {
         return new self(
             BroadcastOperation::MESSAGE_CREATED,
-            BroadcastTarget::channel($message->server_id, $message->channel_id)->sender($message->user_id),
+            Route::server($message->server_id),
             [
                 'id' => $message->id,
                 'user_id' => $message->user_id,
@@ -46,7 +46,7 @@ final readonly class GatewayEvent implements JsonSerializable
     {
         return new self(
             BroadcastOperation::CHANNEL_CREATED,
-            BroadcastTarget::server($channel->server_id),
+            Route::server($channel->server_id),
             [
                 'id' => $channel->id,
                 'server_id' => $channel->server_id,
@@ -61,7 +61,7 @@ final readonly class GatewayEvent implements JsonSerializable
     {
         return new self(
             BroadcastOperation::CHANNEL_UPDATED,
-            BroadcastTarget::server($channel->server_id),
+            Route::server($channel->server_id),
             [
                 'id' => $channel->id,
                 'server_id' => $channel->server_id,
@@ -76,9 +76,10 @@ final readonly class GatewayEvent implements JsonSerializable
     {
         return new self(
             BroadcastOperation::CHANNEL_DELETED,
-            BroadcastTarget::server($serverId),
+            Route::server($serverId),
             [
                 'id' => $channelId,
+                'server_id' => $serverId,
                 'type' => $type,
             ],
         );
@@ -87,10 +88,12 @@ final readonly class GatewayEvent implements JsonSerializable
     public static function userJoinedVoiceChannel(int $channelId, int $serverId, int $userId): self
     {
         return new self(
-            BroadcastOperation::USER_JOINED_VOICE,
-            BroadcastTarget::channel($serverId, $channelId),
+            BroadcastOperation::VOICE_USER_JOINED,
+            Route::server($serverId),
             [
-                'id' => $userId,
+                'server_id' => $serverId,
+                'channel_id' => $channelId,
+                'user_id' => $userId,
             ]
         );
     }
@@ -98,10 +101,12 @@ final readonly class GatewayEvent implements JsonSerializable
     public static function userLeftVoiceChannel(int $channelId, int $serverId, int $userId): self
     {
         return new self(
-            BroadcastOperation::USER_LEFT_VOICE,
-            BroadcastTarget::channel($serverId, $channelId),
+            BroadcastOperation::VOICE_USER_LEFT,
+            Route::server($serverId),
             [
-                'id' => $userId,
+                'server_id' => $serverId,
+                'channel_id' => $channelId,
+                'user_id' => $userId,
             ]
         );
     }
@@ -110,17 +115,19 @@ final readonly class GatewayEvent implements JsonSerializable
     {
         return new self(
             BroadcastOperation::VOICE_CHANNEL_CLOSED,
-            BroadcastTarget::channel($serverId, $channelId),
-            []
+            Route::server($serverId),
+            [
+                'server_id' => $serverId,
+                'channel_id' => $channelId,
+            ]
         );
     }
 
     public function jsonSerialize(): array
     {
         return [
-            'op' => $this->op->value,
-            ...$this->target->toArray(),
-            'data' => $this->data,
+            'gateway' => ['route' => $this->route],
+            'client' => ['op' => $this->op->value, 'data' => $this->data],
         ];
     }
 }

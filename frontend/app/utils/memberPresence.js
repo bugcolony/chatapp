@@ -1,5 +1,5 @@
 export function updatePendingMemberPresence(members = [], userState) {
-    const index = members.findIndex((member) => member.id === userState.id)
+    const index = members.findIndex((member) => member.user_id === userState.user_id)
 
     if (userState.status === 'online') {
         if (index === -1) {
@@ -9,12 +9,12 @@ export function updatePendingMemberPresence(members = [], userState) {
         return [
             ...members.slice(0, index),
             {...members[index], ...userState},
-            ...members.slice(index + 1).filter((member) => member.id !== userState.id),
+            ...members.slice(index + 1).filter((member) => member.user_id !== userState.user_id),
         ]
     }
 
     if (userState.status === 'offline') {
-        return members.filter((member) => member.id !== userState.id)
+        return members.filter((member) => member.user_id !== userState.user_id)
     }
 
     return members

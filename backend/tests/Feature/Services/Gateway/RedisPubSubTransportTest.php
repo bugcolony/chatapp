@@ -12,7 +12,7 @@ test('events are published to the configured channel on the realtime connection'
         ->once()
         ->withArgs(function (string $channel, string $payload): bool {
             return $channel === 'test.channel'
-                && json_decode($payload, true, flags: JSON_THROW_ON_ERROR)['targetServerId'] === 12;
+                && json_decode($payload, true, flags: JSON_THROW_ON_ERROR)['gateway']['route']['server_id'] === 12;
         });
 
     $redis = Mockery::mock(RedisFactory::class);

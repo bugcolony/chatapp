@@ -84,8 +84,8 @@ export const useSocketStore = defineStore('socket', () => {
         }
 
         dispatchEvent({
-            op: RealtimeOperations.CLIENT_SERVER_ACTIVE,
-            serverId: serverId
+            op: RealtimeOperations.SERVER_ACTIVE,
+            data: {server_id: serverId}
         })
     }
 
@@ -93,9 +93,8 @@ export const useSocketStore = defineStore('socket', () => {
         typeEventSent = true
 
         dispatchEvent({
-            op: RealtimeOperations.CLIENT_START_TYPING,
-            serverId: serverId,
-            channelId: channelId
+            op: RealtimeOperations.TYPING_START,
+            data: {server_id: serverId, channel_id: channelId}
         })
     }
 
@@ -105,9 +104,8 @@ export const useSocketStore = defineStore('socket', () => {
         }
 
         dispatchEvent({
-            op: RealtimeOperations.CLIENT_STOP_TYPING,
-            serverId: serverId,
-            channelId: channelId
+            op: RealtimeOperations.TYPING_STOP,
+            data: {server_id: serverId, channel_id: channelId}
         })
 
         typeEventSent = false
@@ -127,56 +125,56 @@ export const useSocketStore = defineStore('socket', () => {
     }
 
     function messageEventHandler(event) {
-        const operation = JSON.parse(event.data);
+        const {op, data} = JSON.parse(event.data);
 
-        switch (operation.op) {
+        switch (op) {
             case RealtimeOperations.MESSAGE_CREATED:
                 // TODO: do better dedupe
                 // TODO: rework to client_id check
-                if (operation.senderId === auth.user?.id) {
+                if (data.user_id === auth.user?.id) {
                     return
                 }
 
-                serverStore.upsertChannelMessage(operation.targetChannelId, operation.data)
+                serverStore.upsertChannelMessage(data.channel_id, data)
                 playNotification()
 
                 break;
             case RealtimeOperations.CHANNEL_CREATED:
-                serverStore.upsertServerChannel(operation.targetServerId, operation.data)
+                serverStore.upsertServerChannel(data.server_id, data)
                 break;
             case RealtimeOperations.CHANNEL_UPDATED:
-                serverStore.upsertServerChannel(operation.targetServerId, operation.data)
+                serverStore.upsertServerChannel(data.server_id, data)
                 break;
             case RealtimeOperations.CHANNEL_DELETED:
-                serverStore.removeServerChannel(operation.targetServerId, operation.data.id)
+                serverStore.removeServerChannel(data.server_id, data.id)
 
-                if (serverStore.activeChannelId === operation.data.id) {
-                    void navigateTo(`/app/servers/${operation.targetServerId}`)
+                if (serverStore.activeChannelId === data.id) {
+                    void navigateTo(`/app/servers/${data.server_id}`)
                 }
                 break;
-            case RealtimeOperations.VOICE_PARTICIPANT_JOINED:
-                serverStore.addVoiceChannelParticipant(operation.targetChannelId, operation.data.id)
+            case RealtimeOperations.VOICE_USER_JOINED:
+                serverStore.addVoiceChannelParticipant(data.channel_id, data.user_id)
                 break;
-            case RealtimeOperations.VOICE_PARTICIPANT_LEFT:
-                serverStore.removeVoiceChannelParticipant(operation.targetChannelId, operation.data.id)
+            case RealtimeOperations.VOICE_USER_LEFT:
+                serverStore.removeVoiceChannelParticipant(data.channel_id, data.user_id)
                 break;
             case RealtimeOperations.VOICE_CHANNEL_CLOSED:
-                serverStore.clearVoiceChannel(operation.targetChannelId)
+                serverStore.clearVoiceChannel(data.channel_id)
                 break;
-            case RealtimeOperations.GW_MEMBER_STATUS_SNAPSHOT:
-                serverStore.setServerMemberStatusSnapshot(operation.targetServerId, operation.data.members)
+            case RealtimeOperations.MEMBER_STATUS_SNAPSHOT:
+                serverStore.setServerMemberStatusSnapshot(data.server_id, data.members)
                 break;
-            case RealtimeOperations.GW_MEMBER_STATUS:
-                serverStore.setServerMemberStatus(operation.targetServerId, operation.data)
+            case RealtimeOperations.MEMBER_STATUS:
+                serverStore.setServerMemberStatus(data.server_id, data)
                 break;
-            case RealtimeOperations.CLIENT_START_TYPING:
-                serverStore.setChannelTypingPresence(operation.targetChannelId, operation.data.id)
+            case RealtimeOperations.TYPING_START:
+                serverStore.setChannelTypingPresence(data.channel_id, data.user_id)
                 break;
-            case RealtimeOperations.CLIENT_STOP_TYPING:
-                serverStore.removeChannelTypingPresence(operation.targetChannelId, operation.data.id)
+            case RealtimeOperations.TYPING_STOP:
+                serverStore.removeChannelTypingPresence(data.channel_id, data.user_id)
                 break;
             default:
-                console.log('[WS] Unknown OP:', operation)
+                console.log('[WS] Unknown OP:', op, data)
         }
     }
 

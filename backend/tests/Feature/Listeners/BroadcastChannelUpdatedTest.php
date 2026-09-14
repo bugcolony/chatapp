@@ -25,7 +25,7 @@ test('channel updated payload targets every client subscribed to the server', fu
     $operation = $transport->sole();
 
     expect($operation->op)->toBe(BroadcastOperation::CHANNEL_UPDATED)
-        ->and($operation->target->serverId)->toBe(12)
+        ->and($operation->route->serverId)->toBe(12)
         ->and($operation->data)->toBe([
             'id' => 56,
             'server_id' => 12,

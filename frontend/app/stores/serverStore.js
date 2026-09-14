@@ -298,7 +298,7 @@ export const useServerStore = defineStore('server', {
         },
 
         setServerMemberStatusSnapshot(serverId, userState) {
-            const statuses = new Map(userState.map((e) => [e.id, e]))
+            const statuses = new Map(userState.map((e) => [e.user_id, e]))
 
             if (!this.serverMembers[serverId]) {
                 this.pendingMemberUpdates[serverId] = userState
@@ -319,7 +319,7 @@ export const useServerStore = defineStore('server', {
 
         setServerMemberStatus(serverId, userState) {
             if (this.serverMembers[serverId]) {
-                const member = this.serverMembers[serverId].find((el) => el.user.id === userState.id)
+                const member = this.serverMembers[serverId].find((el) => el.user.id === userState.user_id)
 
                 if (member) {
                     member.status = userState.status
