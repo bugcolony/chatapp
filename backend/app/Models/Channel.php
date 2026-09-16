@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Attributes\UseResourceCollection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -55,6 +56,17 @@ class Channel extends Model
     {
         return $this->belongsTo(self::class, 'parent_id');
     }
+
+    public function participants(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            User::class,
+            'channel_participants',
+            'channel_id',
+            'user_id'
+        );
+    }
+
 
     public function channelReads(): HasMany
     {

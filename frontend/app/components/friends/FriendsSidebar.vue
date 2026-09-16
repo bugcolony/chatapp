@@ -20,7 +20,7 @@ const sending = ref(false)
 
 const tabs = computed(() => [
   { label: 'Friends', icon: 'i-lucide-users', value: 'friends' },
-  { label: 'Invites', icon: 'i-lucide-user-round-arrow-left', value: 'invites', badge: incomingFriendRequests.value.length || undefined },
+  { label: 'Requests', icon: 'i-lucide-user-round-arrow-left', value: 'requests', badge: incomingFriendRequests.value.length || undefined },
 ])
 
 const list = computed(() => (tab.value === 'friends' ? friends.value : incomingFriendRequests.value))
@@ -81,10 +81,22 @@ async function block(user) {
   }
 }
 
+async function sendMessage(user) {
+  try {
+    const channel = await store.openDirectChannel(user.id)
+
+    uiStore.setServerDirectTab('direct')
+    await navigateTo(`/app/direct/${channel.id}`)
+  } catch {
+    toast.add({ title: 'Could not open conversation', color: 'error' })
+  }
+}
+
 function friendMenuItems(user) {
   return [
     [
-      { label: 'Unfriend', icon: 'i-lucide-user-minus', color: 'warning', onSelect: () => unfriend(user) },
+      { label: 'Send message', icon: 'i-lucide-message-circle', onSelect: () => sendMessage(user) },
+      { label: 'Unfriend', icon: 'i-lucide-user-minus', color: 'error', onSelect: () => unfriend(user) },
       { label: 'Block', icon: 'i-lucide-ban', color: 'error', onSelect: () => block(user) },
     ],
   ]
@@ -180,7 +192,11 @@ function friendMenuItems(user) {
               item: 'rounded-lg',
             }"
           >
-            <div class="flex items-center gap-3 rounded-2xl px-2 py-2 transition hover:bg-white/6">
+            <div
+              class="flex items-center gap-3 rounded-2xl px-2 py-2 transition hover:bg-white/6"
+              :class="{ 'cursor-pointer': tab === 'friends' }"
+              @click="tab === 'friends' && sendMessage(user)"
+            >
               <UAvatar
                 :src="userAvatarSrc(user)"
                 size="lg"
@@ -189,7 +205,7 @@ function friendMenuItems(user) {
                 <span class="block truncate text-sm font-bold text-white">{{ user.name }}</span>
                 <span class="block truncate text-xs text-slate-500">@{{ user.username }}</span>
               </span>
-              <template v-if="tab === 'invites'">
+              <template v-if="tab === 'requests'">
                 <UButton
                   icon="i-lucide-check"
                   color="success"

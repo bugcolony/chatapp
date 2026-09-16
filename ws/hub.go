@@ -7,7 +7,6 @@ import (
 
 type Hub struct {
 	register             chan *Client
-	subscribe            chan *Client
 	unsubscribe          chan *Client
 	subscribeToServer    chan *SubscribeServerCommand
 	broadcast            chan Broadcast
@@ -186,6 +185,8 @@ func (h *Hub) run() {
 
 			if !ok {
 				h.users[client.user.Id] = make(map[*Client]bool)
+
+				// Broadcast to friends that user is online
 			}
 
 			h.users[client.user.Id][client] = true

@@ -135,6 +135,10 @@ export const useSocketStore = defineStore('socket', () => {
                     return
                 }
 
+                if (data.server_id === null && !serverStore.directChannels.has(data.channel_id)) {
+                    void serverStore.fetchDirectChannels()
+                }
+
                 serverStore.upsertChannelMessage(data.channel_id, data)
                 playNotification()
 

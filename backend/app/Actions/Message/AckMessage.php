@@ -2,6 +2,7 @@
 
 namespace App\Actions\Message;
 
+use App\Enums\ChannelType;
 use App\Models\Channel;
 use App\Models\Member;
 use App\Models\Message;
@@ -13,14 +14,19 @@ class AckMessage
     public function execute(Channel $channel, Message $message): void
     {
         $userId = auth()->user()->id;
+        $baseline = 0;
 
-        $membership = Member::query()
-            ->where('server_id', $channel->server_id)
-            ->where('user_id', $userId)
-            ->first();
+        if ($channel->type !== ChannelType::DIRECT_MESSAGE) {
+            $membership = Member::query()
+                ->where('server_id', $channel->server_id)
+                ->where('user_id', $userId)
+                ->first();
 
-        if (!$membership) {
-            throw new RuntimeException('Not a valid channel');
+            if (!$membership) {
+                throw new RuntimeException('Not a valid channel');
+            }
+
+            $baseline = $membership->baseline_message_id;
         }
 
         DB::statement(<<<'SQL'
@@ -32,7 +38,7 @@ class AckMessage
         SQL, [
             $channel->id,
             $userId,
-            $membership->baseline_message_id,
+            $baseline,
             $message->id,
             $message->id,
         ]);

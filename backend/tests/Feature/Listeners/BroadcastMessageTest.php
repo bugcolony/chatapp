@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\BroadcastOperation;
+use App\Enums\ChannelType;
 use App\Events\MessageCreated;
 use App\Listeners\BroadcastMessage;
+use App\Models\Channel;
 use App\Models\Message;
 use App\Models\User;
 use App\Services\Gateway\RealtimeTransport;
@@ -21,10 +23,13 @@ test('message created payload routes to the server and carries the ids the brows
     $message->setRelation('mentions', collect());
     $message->setRelation('attachment', null);
 
+    $channel = new Channel(['server_id' => 12, 'type' => ChannelType::TEXT]);
+    $channel->id = 34;
+
     $transport = new FakeTransport;
     $this->app->instance(RealtimeTransport::class, $transport);
 
-    $this->app->make(BroadcastMessage::class)->handle(new MessageCreated($message));
+    $this->app->make(BroadcastMessage::class)->handle(new MessageCreated($message, $channel));
 
     $operation = $transport->sole();
 

@@ -23,7 +23,7 @@ test('creating a channel dispatches a server fan-out event', function () {
 
     $this->postJson("/api/v1/servers/{$server->id}/channels", [
         'name' => 'announcements',
-        'type' => ChannelType::Text->value,
+        'type' => ChannelType::TEXT->value,
     ])->assertCreated();
 
     $channel = Channel::query()->sole();

@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Enums\AppPermission;
+use App\Enums\ChannelType;
 use App\Models\Channel;
 use App\Models\Server;
 use App\Models\User;
@@ -24,6 +25,10 @@ class ChannelPolicy
      */
     public function update(User $user, Channel $channel): bool
     {
+        if ($channel->type === ChannelType::DIRECT_MESSAGE) {
+            return false;
+        }
+
         return $this->canManageChannels($user, $channel->server);
     }
 
@@ -32,6 +37,10 @@ class ChannelPolicy
      */
     public function destroy(User $user, Channel $channel): bool
     {
+        if ($channel->type === ChannelType::DIRECT_MESSAGE) {
+            return false;
+        }
+
         return $this->canManageChannels($user, $channel->server);
     }
 

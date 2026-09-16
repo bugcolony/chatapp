@@ -9,21 +9,24 @@ use App\Http\Resources\Api\V1\MessageMentionResource;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Channel;
 use App\Models\Message;
+use Illuminate\Support\Facades\DB;
 use JsonSerializable;
 
 final readonly class GatewayEvent implements JsonSerializable
 {
     public function __construct(
         public BroadcastOperation $op,
-        public Route $route,
-        public array $data
-    ) {}
+        public Route              $route,
+        public array              $data
+    )
+    {
+    }
 
-    public static function messageCreated(Message $message): self
+    public static function messageCreated(Message $message, Channel $channel): self
     {
         return new self(
             BroadcastOperation::MESSAGE_CREATED,
-            Route::server($message->server_id),
+            self::channelRoute($channel),
             [
                 'id' => $message->id,
                 'user_id' => $message->user_id,
@@ -85,42 +88,53 @@ final readonly class GatewayEvent implements JsonSerializable
         );
     }
 
-    public static function userJoinedVoiceChannel(int $channelId, int $serverId, int $userId): self
+    public static function userJoinedVoiceChannel(Channel $channel, int $userId): self
     {
         return new self(
             BroadcastOperation::VOICE_USER_JOINED,
-            Route::server($serverId),
+            self::channelRoute($channel),
             [
-                'server_id' => $serverId,
-                'channel_id' => $channelId,
+                'server_id' => $channel->server_id,
+                'channel_id' => $channel->id,
                 'user_id' => $userId,
             ]
         );
     }
 
-    public static function userLeftVoiceChannel(int $channelId, int $serverId, int $userId): self
+    public static function userLeftVoiceChannel(Channel $channel, int $userId): self
     {
         return new self(
             BroadcastOperation::VOICE_USER_LEFT,
-            Route::server($serverId),
+            self::channelRoute($channel),
             [
-                'server_id' => $serverId,
-                'channel_id' => $channelId,
+                'server_id' => $channel->server_id,
+                'channel_id' => $channel->id,
                 'user_id' => $userId,
             ]
         );
     }
 
-    public static function voiceChannelClosed(int $channelId, int $serverId): self
+    public static function voiceChannelClosed(Channel $channel): self
     {
         return new self(
             BroadcastOperation::VOICE_CHANNEL_CLOSED,
-            Route::server($serverId),
+            self::channelRoute($channel),
             [
-                'server_id' => $serverId,
-                'channel_id' => $channelId,
+                'server_id' => $channel->server_id,
+                'channel_id' => $channel->id,
             ]
         );
+    }
+
+    private static function channelRoute(Channel $channel): Route
+    {
+        return $channel->type === ChannelType::DIRECT_MESSAGE
+            ? Route::users(...DB::table('channel_participants')
+                ->where('channel_id', $channel->id)
+                ->orderBy('user_id')
+                ->pluck('user_id')
+                ->all())
+            : Route::server($channel->server_id);
     }
 
     public function jsonSerialize(): array

@@ -17,7 +17,7 @@ class ChannelFactory extends Factory
         return [
             'server_id' => Server::factory(),
             'name' => fake()->unique()->slug(2),
-            'type' => ChannelType::Text,
+            'type' => ChannelType::TEXT,
             'position' => 0,
             'is_locked' => false,
         ];
@@ -25,12 +25,12 @@ class ChannelFactory extends Factory
 
     public function voice(): static
     {
-        return $this->state(['type' => ChannelType::Voice]);
+        return $this->state(['type' => ChannelType::VOICE]);
     }
 
     public function category(): static
     {
-        return $this->state(['type' => ChannelType::Category]);
+        return $this->state(['type' => ChannelType::CATEGORY]);
     }
 
     public function locked(): static

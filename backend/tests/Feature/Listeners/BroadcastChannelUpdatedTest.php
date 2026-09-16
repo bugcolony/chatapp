@@ -13,7 +13,7 @@ test('channel updated payload targets every client subscribed to the server', fu
         'server_id' => 12,
         'parent_id' => 34,
         'name' => 'announcements',
-        'type' => ChannelType::Text,
+        'type' => ChannelType::TEXT,
     ]);
     $channel->id = 56;
 
@@ -30,7 +30,7 @@ test('channel updated payload targets every client subscribed to the server', fu
             'id' => 56,
             'server_id' => 12,
             'parent_id' => 34,
-            'type' => ChannelType::Text,
+            'type' => ChannelType::TEXT,
             'name' => 'announcements',
         ]);
 });

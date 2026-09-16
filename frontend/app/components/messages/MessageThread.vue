@@ -13,8 +13,12 @@ const props = defineProps({
   },
   serverId: {
     type: Number,
-    required: true,
+    default: null,
   },
+  summaries: {
+    type: Boolean,
+    default: false
+  }
 })
 
 const channelId = props.channelId
@@ -168,7 +172,7 @@ onMounted(async () => {
       await store.fetchChannelMessages(channelId)
     } catch (err) {
       console.error(err)
-      await navigateTo(`/app/servers/${serverId}`)
+      await navigateTo(serverId ? `/app/servers/${serverId}` : '/app')
     }
   }
 })
@@ -227,6 +231,7 @@ watchDebounced([canAck, lastMessageId], () => {
         <span class="font-bold">{{ typingMemberTitle }}</span> {{typingMembers.length > 1 ? "are" : "is"}} typing</div>
 
       <MessageSummary
+        v-if="summaries"
         :channel-id="channelId"
         class="absolute -top-7 right-3 z-10 sm:right-4"
       />

@@ -19,7 +19,7 @@ test('events are published to the configured channel on the realtime connection'
     $redis->shouldReceive('connection')->once()->with('realtime')->andReturn($connection);
 
     new RedisPubSubTransport($redis, 'test.channel')->publish(
-        GatewayEvent::channelDeleted(channelId: 56, serverId: 12, type: ChannelType::Text),
+        GatewayEvent::channelDeleted(channelId: 56, serverId: 12, type: ChannelType::TEXT),
     );
 });
 
@@ -42,7 +42,7 @@ test('a gateway outage is reported instead of failing the caller', function () {
     $redis->shouldReceive('connection')->once()->andReturn($connection);
 
     new RedisPubSubTransport($redis, 'test.channel')->publish(
-        GatewayEvent::channelDeleted(channelId: 56, serverId: 12, type: ChannelType::Text),
+        GatewayEvent::channelDeleted(channelId: 56, serverId: 12, type: ChannelType::TEXT),
     );
 
     Exceptions::assertReported(RuntimeException::class);

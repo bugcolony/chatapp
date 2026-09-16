@@ -14,6 +14,7 @@ type Client struct {
 	user                *User
 	hub                 *Hub
 	serverSubscriptions []int
+	friends             []int
 	once                sync.Once
 	ws                  *websocket.Conn
 	send                chan []byte

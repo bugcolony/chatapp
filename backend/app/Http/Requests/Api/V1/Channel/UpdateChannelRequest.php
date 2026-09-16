@@ -29,7 +29,7 @@ class UpdateChannelRequest extends FormRequest
                 Rule::exists('channels', 'id')->where(
                     fn (Builder $query) => $query
                         ->where('server_id', $channel->server_id)
-                        ->where('type', ChannelType::Category->value)
+                        ->where('type', ChannelType::CATEGORY->value)
                         ->whereNull('deleted_at'),
                 ),
             ],

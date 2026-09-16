@@ -77,7 +77,7 @@ final readonly class CreateMessage
         }
 
         $message->load(['attachment.file', 'author']);
-        MessageCreated::dispatch($message);
+        MessageCreated::dispatch($message, $channel);
 
         return $message;
     }
@@ -90,7 +90,7 @@ final readonly class CreateMessage
             ->mentions()
             ->insert(
                 new MessageParser($message->content)
-                    ->parseMentionsWithContext(new ParserContext(serverId: $message->server_id))->map(function (array $mention) use ($message, $created_at) {
+                    ->parseMentionsWithContext(new ParserContext(serverId: $message->server_id, channelId: $message->channel_id))->map(function (array $mention) use ($message, $created_at) {
                         return [...$mention,
                             'message_id' => $message->id,
                             'created_at' => $created_at,

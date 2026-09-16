@@ -27,6 +27,7 @@ type Server struct {
 type User struct {
 	Id                  int
 	ServerSubscriptions []int
+	Friends             []int
 }
 
 type SubscribeServerCommand struct {
@@ -128,7 +129,6 @@ func NewServer(store RealtimeStore, redisChannel string) *Server {
 
 	s.hub = new(Hub{
 		register:             make(chan *Client),
-		subscribe:            make(chan *Client),
 		subscribeToServer:    make(chan *SubscribeServerCommand),
 		unsubscribe:          make(chan *Client),
 		broadcast:            make(chan Broadcast),
@@ -180,7 +180,7 @@ func (s *Server) webSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := &Client{user, s.hub, user.ServerSubscriptions, sync.Once{}, ws, make(chan []byte, 256)}
+	client := &Client{user, s.hub, user.ServerSubscriptions, user.Friends, sync.Once{}, ws, make(chan []byte, 256)}
 
 	s.hub.register <- client
 

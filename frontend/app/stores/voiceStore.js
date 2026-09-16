@@ -365,6 +365,8 @@ export const useVoiceStore = defineStore('voice', () => {
         const record = activeConnection.value
 
         if (!record?.room) {
+            microphoneEnabled.value = !microphoneEnabled.value
+
             return
         }
 
@@ -419,6 +421,7 @@ export const useVoiceStore = defineStore('voice', () => {
     }
 
     return {
+        activeChannelId,
         participants,
         connect,
         disconnect,

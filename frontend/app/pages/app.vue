@@ -31,7 +31,7 @@ const routeChannelId = computed(() =>
 watch(routeServerId, (serverId) => {
   store.activeServerId = serverId
   setActiveServer(serverId ?? null)
-  store.fetchVoicePresence(serverId)
+  store.fetchServerVoicePresence(serverId)
 }, { immediate: true })
 
 watch(routeChannelId, (channelId) => {
@@ -56,6 +56,8 @@ onMounted(async () => {
 
   await store.fetchServers()
   await store.fetchFriends()
+  await store.fetchDirectChannels()
+  await store.fetchDirectVoicePresence()
   // await store.fetchUserUnread()
   await connect()
 

@@ -22,13 +22,14 @@ class RedisWebSocketTicketStore implements WebSocketTicketStore
     /**
      * @throws JsonException
      */
-    public function issue(int $userId, array $serverIds): string
+    public function issue(int $userId, array $serverIds, array $friendIds): string
     {
         $ticket = Str::random(self::TICKET_LENGTH);
 
         $payload = json_encode([
             'id' => $userId,
             'serverSubscriptions' => $serverIds,
+            'friends' => $friendIds,
         ], JSON_THROW_ON_ERROR);
 
         $stored = $this->redis->connection(self::CONNECTION)->setex(

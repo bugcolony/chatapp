@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Enums\AppPermission;
+use App\Enums\ChannelType;
 use App\Models\Channel;
 use App\Models\Message;
 use App\Models\MessageAttachment;
@@ -22,7 +23,11 @@ class MessagePolicy
      */
     public function store(User $user, Channel $channel, int $attachmentBytes = 0): bool
     {
-        if ($channel->server === null) {
+        if ($channel->server === null ) {
+            if ($channel->type === ChannelType::DIRECT_MESSAGE) {
+                return $channel->participants()->where('user_id', $user->id)->exists();
+            }
+
             return false;
         }
 
@@ -48,6 +53,10 @@ class MessagePolicy
     public function view(User $user, Message $message): bool
     {
         if ($message->server === null) {
+            if ($message->channel->type === ChannelType::DIRECT_MESSAGE) {
+                return $message->channel->participants()->where('user_id', $user->id)->exists();
+            }
+
             return false;
         }
 

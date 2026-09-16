@@ -14,7 +14,7 @@ test('channel deleted payload targets every client subscribed to the server', fu
     $this->app->make(BroadcastChannelDeleted::class)->handle(new ChannelDeleted(
         channelId: 56,
         serverId: 12,
-        type: ChannelType::Text,
+        type: ChannelType::TEXT,
     ));
 
     $operation = $transport->sole();
@@ -24,6 +24,6 @@ test('channel deleted payload targets every client subscribed to the server', fu
         ->and($operation->data)->toBe([
             'id' => 56,
             'server_id' => 12,
-            'type' => ChannelType::Text,
+            'type' => ChannelType::TEXT,
         ]);
 });

@@ -142,6 +142,18 @@ class User extends Authenticatable
         )->wherePivot('status', FriendStatus::OUTGOING_PENDING->value);
     }
 
+    public function directMessageChannels(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Channel::class,
+            'channel_participants',
+            'user_id',
+            'channel_id'
+        )->where(fn ($query) => $query
+            ->whereNull('channel_participants.hidden_before_message_id')
+            ->orWhereColumn('channel_participants.hidden_before_message_id', '<', 'channels.last_message_id'));
+    }
+
     public function avatarUrl(): ?string
     {
         return $this->avatar_file_id

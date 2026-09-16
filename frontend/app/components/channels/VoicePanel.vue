@@ -7,8 +7,22 @@ const props = defineProps({
   channelId: {
     type: Number,
     required: true,
+  },
+  direct: {
+    type: Boolean,
+    default: false
+  },
+  collapsed: {
+    type: Boolean,
+    default: false
+  },
+  autoConnect: {
+    type: Boolean,
+    default: true
   }
 })
+
+const emit = defineEmits(['update:collapsed'])
 
 const uiStore = useChatUIStore()
 const voiceStore = useVoiceStore()
@@ -20,16 +34,40 @@ const {
   microphoneStateLoading,
   cameraStateLoading,
   screenStateLoading,
-    connectionStateConnected,
-    connectionStateDisconnected,
-    connectionStateConnecting,
+  connectionStateConnected,
+  connectionStateDisconnected,
+  connectionStateConnecting,
 } = storeToRefs(voiceStore)
+
+
+const {voiceChannelParticipants} = storeToRefs(useServerStore())
+
+const voiceParticipants = computed(() => {
+  const cards = new Map(Array.from(participants.value, ([id, p]) => [Number(id), p]))
+
+  if (!props.direct) {
+    return cards
+  }
+
+  const present = voiceChannelParticipants.value.get(props.channelId) ?? new Set()
+
+  present.forEach((userId) => {
+    if (!cards.has(userId)) {
+      cards.set(userId, null)
+    }
+  })
+
+  return cards
+})
 
 let joinedChannelId = null
 
 onMounted(() => {
   joinedChannelId = props.channelId
-  voiceStore.connect(joinedChannelId)
+
+  if (props.autoConnect) {
+    voiceStore.connect(joinedChannelId)
+  }
 })
 
 onBeforeUnmount(() => {
@@ -50,11 +88,22 @@ function handleLeaveJoinClick() {
 </script>
 
 <template>
-  <div class="w-full bg-black/50 p-5 relative">
-    <div class="h-full flex flex-wrap justify-center items-center gap-3">
-      <VoiceParticipant v-for="[id, p] in participants" :key="id" :participant="p" :user-id="id" class="max-w-100"/>
+  <div class="w-full relative" :class="collapsed ? 'bg-black p-1' : 'bg-black/50 p-5'">
+    <div v-show="!collapsed" class="h-full flex flex-wrap justify-center items-center gap-3">
+      <VoiceParticipant
+          v-for="[id, p] in voiceParticipants"
+          :key="id"
+          :participant="p"
+          :user-id="id"
+          :channel-id="channelId"
+          :direct="direct"
+          class="max-w-100"
+      />
     </div>
-    <div class="absolute bottom-5 left-1/2 -translate-x-1/2 flex justify-center items-center p-1 bg-slate-900 ring-1 ring-white/10 rounded-md">
+    <div
+        class="flex justify-center items-center p-1 bg-slate-900 ring-1 ring-white/10 rounded-md"
+        :class="collapsed ? 'mx-auto w-fit' : 'absolute bottom-5 left-1/2 -translate-x-1/2'"
+    >
       <LoaderOverlay :loading="microphoneStateLoading">
         <div
             class="hover:bg-slate-600 rounded-md cursor-pointer flex justify-center items-center p-1 w-9 h-9"
@@ -70,7 +119,7 @@ function handleLeaveJoinClick() {
           </UTooltip>
         </div>
       </LoaderOverlay>
-      <LoaderOverlay :loading="cameraStateLoading">
+      <LoaderOverlay v-if="!connectionStateDisconnected" :loading="cameraStateLoading">
         <div class="hover:bg-slate-600 rounded-md cursor-pointer flex justify-center items-center p-1 w-9 h-9" @click="voiceStore.toggleCamera()">
           <UTooltip :text="cameraEnabled ? 'Turn off camera' : 'Turn on camera'">
             <UIcon
@@ -81,7 +130,7 @@ function handleLeaveJoinClick() {
           </UTooltip>
         </div>
       </LoaderOverlay>
-      <LoaderOverlay :loading="screenStateLoading">
+      <LoaderOverlay v-if="!connectionStateDisconnected" :loading="screenStateLoading">
         <div
             class="hover:bg-slate-600 rounded-md cursor-pointer flex justify-center items-center p-1 w-9 h-9"
             @click="voiceStore.toggleScreen()"
@@ -96,8 +145,9 @@ function handleLeaveJoinClick() {
         </div>
       </LoaderOverlay>
 
-      <USeparator orientation="vertical" class="h-7 mx-2"/>
+      <USeparator v-if="!collapsed" orientation="vertical" class="h-7 mx-2"/>
       <div
+          v-if="!collapsed"
           class="hover:bg-slate-600 rounded-md cursor-pointer flex justify-center items-center p-1 w-9 h-9"
           :class="{ 'bg-slate-700': uiStore.voiceTextVisible}"
           @click="uiStore.toggleVoiceTextVisible()"
@@ -126,6 +176,18 @@ function handleLeaveJoinClick() {
           </UTooltip>
         </div>
       </LoaderOverlay>
+      <USeparator orientation="vertical" class="h-7 mx-2"/>
+      <div
+          class="hover:bg-slate-600 rounded-md cursor-pointer flex justify-center items-center p-1 w-9 h-9"
+          @click="emit('update:collapsed', !collapsed)"
+      >
+        <UTooltip :text="collapsed ? 'Expand call' : 'Collapse call'">
+          <UIcon
+              class="size-5 bg-slate-400"
+              :name="collapsed ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'"
+          />
+        </UTooltip>
+      </div>
     </div>
   </div>
 </template>

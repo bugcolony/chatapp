@@ -17,9 +17,9 @@ class BroadcastVoiceChannelEvent
     private const string ROOM_PREFIX = 'channel:';
 
     public function __construct(
-        private LiveKitWebhookVerifier $verifier,
-        private VoiceChannelPresence $presence,
-        private RealtimeTransport $transport,
+        private readonly LiveKitWebhookVerifier $verifier,
+        private readonly VoiceChannelPresence   $presence,
+        private readonly RealtimeTransport      $transport,
     ) {}
 
     /**
@@ -44,7 +44,7 @@ class BroadcastVoiceChannelEvent
             $this->presence->clear($channel->id);
 
             $this->transport->publish(
-                GatewayEvent::voiceChannelClosed($channel->id, $channel->server_id)
+                GatewayEvent::voiceChannelClosed($channel)
             );
 
             return;
@@ -67,16 +67,8 @@ class BroadcastVoiceChannelEvent
         };
 
         $this->transport->publish(match ($eventType) {
-            LiveKitWebhookEvent::PARTICIPANT_JOINED => GatewayEvent::userJoinedVoiceChannel(
-                $channel->id,
-                $channel->server_id,
-                $userId,
-            ),
-            LiveKitWebhookEvent::PARTICIPANT_LEFT => GatewayEvent::userLeftVoiceChannel(
-                $channel->id,
-                $channel->server_id,
-                $userId,
-            ),
+            LiveKitWebhookEvent::PARTICIPANT_JOINED => GatewayEvent::userJoinedVoiceChannel($channel, $userId),
+            LiveKitWebhookEvent::PARTICIPANT_LEFT => GatewayEvent::userLeftVoiceChannel($channel, $userId),
         });
     }
 
@@ -94,7 +86,7 @@ class BroadcastVoiceChannelEvent
 
         return Channel::withTrashed()
             ->select('id', 'server_id', 'type')
-            ->where('type', ChannelType::Voice)
+            ->whereIn('type', [ChannelType::VOICE, ChannelType::DIRECT_MESSAGE])
             ->find((int) $channelId);
     }
 }

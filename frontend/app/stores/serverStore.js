@@ -25,7 +25,8 @@ export const useServerStore = defineStore('server', {
         serverUnread: {},
         channelSummaries: new Map(),
         channelSummariesLoading: new Set(),
-        channelSummaryErrors: new Map()
+        channelSummaryErrors: new Map(),
+        directChannels: new Map(),
     }),
     getters: {
         activeServer: (state) => state.servers.find((s) => s.id === state.activeServerId) ?? null,
@@ -101,6 +102,39 @@ export const useServerStore = defineStore('server', {
             } catch (error) {
                 console.error("Error fetching friend list", error);
             }
+        },
+
+        async fetchDirectChannels() {
+            try {
+                const {$apiFetch} = useNuxtApp();
+
+                const res = await $apiFetch("direct");
+
+                this.directChannels = new Map((res?.data ?? []).map((e) => [e.id, e]));
+
+                (res?.data ?? []).forEach((channel) => {
+                    this.setLastMessage(channel.id, channel.last_message_id ?? 0)
+                    this.readChannelMessage(channel.id, channel.last_read_id ?? 0)
+                })
+            } catch (error) {
+                console.error("Error fetching direct channel list", error);
+            }
+        },
+
+        async openDirectChannel(friendId) {
+            const existing = [...this.directChannels.values()].find((c) => c.participants.some((p) => p.id === friendId));
+
+            if (existing) {
+                return existing;
+            }
+
+            const {$apiFetch} = useNuxtApp();
+
+            const res = await $apiFetch(`direct/${friendId}`, {method: "POST"});
+
+            this.directChannels.set(res.data.id, res.data);
+
+            return res.data;
         },
 
         dropFriend(userId) {
@@ -570,7 +604,7 @@ export const useServerStore = defineStore('server', {
             }
         },
 
-        async fetchVoicePresence(serverId) {
+        async fetchServerVoicePresence(serverId) {
             if (!serverId) {
                 return;
             }
@@ -583,6 +617,18 @@ export const useServerStore = defineStore('server', {
                 this.applyVoicePresenceSnapshots(res.channels ?? {})
             } catch (error) {
                 console.error("Error fetching voice channel presence:", error);
+            }
+        },
+
+        async fetchDirectVoicePresence() {
+            try {
+                const {$apiFetch} = useNuxtApp();
+
+                const res = await $apiFetch(`direct/voice-presence`);
+
+                this.applyVoicePresenceSnapshots(res.channels ?? {})
+            } catch (error) {
+                console.error("Error fetching direct voice channel presence:", error);
             }
         },
 

@@ -43,7 +43,7 @@ function demoFixtureCategoryCount(): int
     return array_sum(array_map(
         static fn (array $server): int => count(array_filter(
             $server['channels'],
-            static fn (array $channel): bool => $channel['type'] === ChannelType::Category->value,
+            static fn (array $channel): bool => $channel['type'] === ChannelType::CATEGORY->value,
         )),
         DemoFixtureManager::SERVERS,
     ));
@@ -86,7 +86,7 @@ test('demo fixtures can be provisioned repeatedly', function () {
         ->and($servers)->toHaveCount(3)
         ->and(Member::query()->whereNull('left_at')->count())->toBe(30)
         ->and(Channel::query()->count())->toBe(demoFixtureChannelCount())
-        ->and(Channel::query()->where('type', ChannelType::Category)->count())->toBe(demoFixtureCategoryCount())
+        ->and(Channel::query()->where('type', ChannelType::CATEGORY)->count())->toBe(demoFixtureCategoryCount())
         ->and(Channel::query()->whereNotNull('parent_id')->count())
         ->toBe(demoFixtureChannelCount() - demoFixtureCategoryCount())
         ->and(Message::query()->count())->toBe(30);

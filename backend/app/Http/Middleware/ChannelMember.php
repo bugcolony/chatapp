@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\ChannelType;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,7 +22,11 @@ class ChannelMember
             return response()->json(['message' => 'Channel not found'], 404);
         }
 
-        $isMember = auth()->user()->memberships()->active()->where('server_id', $channel->server_id)->exists();
+        if ($channel->type === ChannelType::DIRECT_MESSAGE) {
+            $isMember = $channel->participants()->where('user_id', auth()->user()->id)->exists();
+        } else {
+            $isMember = auth()->user()->memberships()->active()->where('server_id', $channel->server_id)->exists();
+        }
 
         abort_unless($isMember, 403, 'You are not a member of this channel');
 

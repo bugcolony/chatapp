@@ -11,7 +11,6 @@ import (
 func newTestHub() *Hub {
 	return &Hub{
 		register:             make(chan *Client),
-		subscribe:            make(chan *Client),
 		unsubscribe:          make(chan *Client),
 		subscribeToServer:    make(chan *SubscribeServerCommand),
 		broadcast:            make(chan Broadcast),
