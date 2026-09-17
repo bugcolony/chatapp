@@ -6,12 +6,14 @@ use App\Models\Channel;
 use App\Models\User;
 use App\Services\Gateway\RealtimeTransport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Routing\Middleware\ThrottleRequestsWithRedis;
 use Laravel\Sanctum\Sanctum;
 use Tests\Support\FakeTransport;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    $this->withoutMiddleware(ThrottleRequestsWithRedis::class);
     $this->transport = new FakeTransport;
     $this->app->instance(RealtimeTransport::class, $this->transport);
 });

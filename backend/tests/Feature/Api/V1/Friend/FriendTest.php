@@ -4,9 +4,14 @@ use App\Enums\FriendStatus;
 use App\Models\Friend;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Routing\Middleware\ThrottleRequestsWithRedis;
 use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
+
+beforeEach(function () {
+    $this->withoutMiddleware(ThrottleRequestsWithRedis::class);
+});
 
 function friendStatus(User $user, User $friend): ?FriendStatus
 {

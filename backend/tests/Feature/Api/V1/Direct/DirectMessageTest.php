@@ -6,10 +6,15 @@ use App\Models\Channel;
 use App\Models\Friend;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Routing\Middleware\ThrottleRequestsWithRedis;
 use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 
 uses(RefreshDatabase::class);
+
+beforeEach(function () {
+    $this->withoutMiddleware(ThrottleRequestsWithRedis::class);
+});
 
 function befriend(User $user, User $friend): Channel
 {
