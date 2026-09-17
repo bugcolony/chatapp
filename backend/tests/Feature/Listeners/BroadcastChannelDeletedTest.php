@@ -14,15 +14,16 @@ test('channel deleted payload targets every client subscribed to the server', fu
     $this->app->make(BroadcastChannelDeleted::class)->handle(new ChannelDeleted(
         channelId: 56,
         serverId: 12,
-        type: ChannelType::Text,
+        type: ChannelType::TEXT,
     ));
 
     $operation = $transport->sole();
 
     expect($operation->op)->toBe(BroadcastOperation::CHANNEL_DELETED)
-        ->and($operation->target->serverId)->toBe(12)
+        ->and($operation->route->serverId)->toBe(12)
         ->and($operation->data)->toBe([
             'id' => 56,
-            'type' => ChannelType::Text,
+            'server_id' => 12,
+            'type' => ChannelType::TEXT,
         ]);
 });

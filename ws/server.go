@@ -3,6 +3,7 @@ package blueberry
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net"
 	"net/http"
 	"strings"
@@ -26,13 +27,7 @@ type Server struct {
 type User struct {
 	Id                  int
 	ServerSubscriptions []int
-}
-
-type Payload struct {
-	Op             int
-	TargetServerId int
-	TargetChannel  int
-	SenderId       int
+	Friends             []int
 }
 
 type SubscribeServerCommand struct {
@@ -41,8 +36,9 @@ type SubscribeServerCommand struct {
 }
 
 type Broadcast struct {
-	targetServerId int
-	data           []byte
+	route Route
+	op    int
+	data  []byte
 }
 
 type RealtimeStore interface {
@@ -89,15 +85,34 @@ func (r *RedisStore) SubscribeToChannel(broadcast chan Broadcast, channel string
 	ch := pubsub.Channel()
 
 	for msg := range ch {
-		message := &Payload{}
-		decoder := json.NewDecoder(strings.NewReader(msg.Payload))
-
-		if err := decoder.Decode(message); err == nil {
-			broadcast <- Broadcast{message.TargetServerId, []byte(msg.Payload)}
+		if b, ok := decodeEvent(msg.Payload); ok {
+			broadcast <- b
 		}
 	}
 
 	return nil
+}
+
+func decodeEvent(payload string) (Broadcast, bool) {
+	var event EventPub
+
+	decoder := json.NewDecoder(strings.NewReader(payload))
+
+	if err := decoder.Decode(&event); err != nil {
+		log.Printf("gateway: undecodable event: %v", err)
+
+		return Broadcast{}, false
+	}
+
+	route := event.Gateway.Route
+
+	if (route.ServerId <= 0 && len(route.UserIds) == 0) || len(event.Client) == 0 {
+		log.Printf("gateway: unroutable event: %s", payload)
+
+		return Broadcast{}, false
+	}
+
+	return Broadcast{route: route, op: event.Gateway.Op, data: event.Client}, true
 }
 
 func newWebSocket(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
@@ -115,7 +130,6 @@ func NewServer(store RealtimeStore, redisChannel string) *Server {
 
 	s.hub = new(Hub{
 		register:             make(chan *Client),
-		subscribe:            make(chan *Client),
 		subscribeToServer:    make(chan *SubscribeServerCommand),
 		unsubscribe:          make(chan *Client),
 		broadcast:            make(chan Broadcast),
@@ -167,7 +181,13 @@ func (s *Server) webSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := &Client{user, s.hub, user.ServerSubscriptions, sync.Once{}, ws, make(chan []byte, 256)}
+	friends := make(map[int]bool, len(user.Friends))
+
+	for _, friendId := range user.Friends {
+		friends[friendId] = true
+	}
+
+	client := &Client{user, s.hub, user.ServerSubscriptions, friends, sync.Once{}, ws, make(chan []byte, 256)}
 
 	s.hub.register <- client
 

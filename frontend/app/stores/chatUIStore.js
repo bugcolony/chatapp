@@ -6,6 +6,7 @@ export const useChatUIStore = defineStore('chatUI', {
         searchQuery: '',
         serverSearchQuery: '',
         draft: '',
+        serverDirectTab: 'servers'
     }),
     actions: {
         toggleLeftSidebar() {
@@ -23,5 +24,8 @@ export const useChatUIStore = defineStore('chatUI', {
         clearServerSearch() {
             this.serverSearchQuery = ''
         },
+        setServerDirectTab(tab) {
+            this.serverDirectTab = tab
+        }
     },
 })

@@ -8,12 +8,11 @@ use App\Http\Resources\Api\V1\ChannelResource;
 use Database\Factories\ChannelFactory;
 use Illuminate\Database\Eloquent\Attributes\UseResource;
 use Illuminate\Database\Eloquent\Attributes\UseResourceCollection;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[UseResource(ChannelResource::class)]
@@ -58,25 +57,24 @@ class Channel extends Model
         return $this->belongsTo(self::class, 'parent_id');
     }
 
+    public function participants(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            User::class,
+            'channel_participants',
+            'channel_id',
+            'user_id'
+        );
+    }
+
+
     public function channelReads(): HasMany
     {
         return $this->hasMany(ChannelRead::class);
     }
 
-    public function voiceTextChannel(): HasOne
+    public function hasFriendOf(User $user): bool
     {
-        return $this->hasOne(self::class, 'parent_id')
-            ->where('type', ChannelType::VoiceText);
-    }
-
-    public function messageChannelId(): Attribute
-    {
-        return Attribute::make(
-            get: fn() => match ($this->type) {
-                ChannelType::Text, ChannelType::VoiceText => $this->id,
-                ChannelType::Voice => $this->voiceTextChannel?->id,
-                default => null
-            }
-        );
+        return $user->friends()->whereIn('users.id', $this->participants()->select('users.id'))->exists();
     }
 }

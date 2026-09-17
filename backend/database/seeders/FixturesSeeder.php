@@ -53,7 +53,7 @@ class FixturesSeeder extends Seeder
             ]));
 
             $channels = collect($spec['channels'])->map(function (string $name, int $i) use ($server) {
-                $type = str_contains($name, 'voice') ? ChannelType::Voice : ChannelType::Text;
+                $type = str_contains($name, 'voice') ? ChannelType::VOICE : ChannelType::TEXT;
 
                 return Channel::factory()->create([
                     'server_id' => $server->id,
@@ -63,7 +63,7 @@ class FixturesSeeder extends Seeder
                 ]);
             });
 
-            $textChannels = $channels->where('type', ChannelType::Text);
+            $textChannels = $channels->where('type', ChannelType::TEXT);
 
             foreach ($textChannels as $channel) {
                 $count = random_int(20, 80);

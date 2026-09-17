@@ -1,6 +1,7 @@
 package blueberry
 
 import (
+	"bytes"
 	"encoding/json"
 	"sync"
 	"testing"
@@ -10,7 +11,6 @@ import (
 func newTestHub() *Hub {
 	return &Hub{
 		register:             make(chan *Client),
-		subscribe:            make(chan *Client),
 		unsubscribe:          make(chan *Client),
 		subscribeToServer:    make(chan *SubscribeServerCommand),
 		broadcast:            make(chan Broadcast),
@@ -51,6 +51,30 @@ func registerTestClient(hub *Hub, client *Client) {
 	}
 }
 
+func newTestFriendClient(hub *Hub, userID int, friendIDs ...int) *Client {
+	client := newTestClient(hub, userID)
+	client.user.Friends = friendIDs
+	client.friends = make(map[int]bool, len(friendIDs))
+
+	for _, friendID := range friendIDs {
+		client.friends[friendID] = true
+	}
+	client.send = make(chan []byte, 8)
+
+	return client
+}
+
+func receiveFriendStatusEvent(t *testing.T, client *Client) EventData[FriendStatusData] {
+	t.Helper()
+
+	var event EventData[FriendStatusData]
+	if err := json.Unmarshal(receiveTestMessage(t, client), &event); err != nil {
+		t.Fatalf("failed to decode friend status event: %v", err)
+	}
+
+	return event
+}
+
 func receiveTestMessage(t *testing.T, client *Client) []byte {
 	t.Helper()
 
@@ -63,10 +87,10 @@ func receiveTestMessage(t *testing.T, client *Client) []byte {
 	}
 }
 
-func receiveTypingEvent(t *testing.T, client *Client) TypePresenceEvent {
+func receiveTypingEvent(t *testing.T, client *Client) EventData[TypingData] {
 	t.Helper()
 
-	var event TypePresenceEvent
+	var event EventData[TypingData]
 	if err := json.Unmarshal(receiveTestMessage(t, client), &event); err != nil {
 		t.Fatalf("failed to decode typing event: %v", err)
 	}
@@ -112,7 +136,7 @@ func TestBroadcastRemovesClientWithFullSendBuffer(t *testing.T) {
 	registerTestClient(hub, client)
 	client.send <- []byte("already queued")
 
-	hub.broadcastMessageTo(hub.serverSubscriptions[10], Broadcast{targetServerId: 10, data: []byte("next message")})
+	hub.broadcastMessageTo(hub.serverSubscriptions[10], []byte("next message"))
 
 	if _, exists := hub.connections[client]; exists {
 		t.Fatal("client with a full send buffer was not removed")
@@ -128,7 +152,7 @@ func TestSnapshotSkipsClientRemovedAfterFullSendBuffer(t *testing.T) {
 	registerTestClient(hub, client)
 	client.send <- []byte("already queued")
 
-	hub.broadcastMessageTo(map[*Client]bool{client: true}, Broadcast{targetServerId: 10, data: []byte("overflow")})
+	hub.broadcastMessageTo(map[*Client]bool{client: true}, []byte("overflow"))
 	hub.sendServerMemberStatusSnapshot(10, client)
 
 	if msg, ok := <-client.send; !ok || string(msg) != "already queued" {
@@ -144,7 +168,7 @@ func TestHubIgnoresCommandsQueuedAfterClientRemoval(t *testing.T) {
 	disconnected := newTestClient(hub, 42, 10)
 	registerTestClient(hub, disconnected)
 	disconnected.send <- []byte("already queued")
-	hub.broadcastMessageTo(map[*Client]bool{disconnected: true}, Broadcast{targetServerId: 10, data: []byte("overflow")})
+	hub.broadcastMessageTo(map[*Client]bool{disconnected: true}, []byte("overflow"))
 
 	live := newTestClient(hub, 7, 10)
 	registerTestClient(hub, live)
@@ -152,7 +176,7 @@ func TestHubIgnoresCommandsQueuedAfterClientRemoval(t *testing.T) {
 
 	serverID := 10
 	hub.activateServer <- &SetActiveServerCommand{client: disconnected, serverId: &serverID}
-	hub.broadcast <- Broadcast{targetServerId: serverID, data: []byte("active command barrier")}
+	hub.broadcast <- Broadcast{route: Route{ServerId: serverID}, data: []byte("active command barrier")}
 	if msg := receiveTestMessage(t, live); string(msg) != "active command barrier" {
 		t.Fatalf("unexpected active-command barrier message: %q", msg)
 	}
@@ -171,7 +195,7 @@ func TestHubIgnoresCommandsQueuedAfterClientRemoval(t *testing.T) {
 			ExpiresAt: &expiresAt,
 		},
 	}
-	hub.broadcast <- Broadcast{targetServerId: serverID, data: []byte("typing command barrier")}
+	hub.broadcast <- Broadcast{route: Route{ServerId: serverID}, data: []byte("typing command barrier")}
 	if msg := receiveTestMessage(t, live); string(msg) != "typing command barrier" {
 		t.Fatalf("unexpected typing-command barrier message: %q", msg)
 	}
@@ -198,22 +222,22 @@ func TestTypingSwitchIgnoresStaleStop(t *testing.T) {
 
 	hub.typeReg <- &SetTypingPresenceCommand{start: true, client: sender, typingPresence: channelA}
 	firstStart := receiveTypingEvent(t, observer)
-	if firstStart.Op != OpClientTypingStart || firstStart.TargetChannelId != channelA.ChannelId {
+	if firstStart.Op != OpTypingStart || firstStart.Data.ChannelId != channelA.ChannelId || firstStart.Data.UserId != sender.user.Id {
 		t.Fatalf("unexpected initial typing event: %+v", firstStart)
 	}
 
 	hub.typeReg <- &SetTypingPresenceCommand{start: true, client: sender, typingPresence: channelB}
 	oldStop := receiveTypingEvent(t, observer)
 	newStart := receiveTypingEvent(t, observer)
-	if oldStop.Op != OpClientTypingStop || oldStop.TargetChannelId != channelA.ChannelId {
+	if oldStop.Op != OpTypingStop || oldStop.Data.ChannelId != channelA.ChannelId {
 		t.Fatalf("unexpected previous-channel stop: %+v", oldStop)
 	}
-	if newStart.Op != OpClientTypingStart || newStart.TargetChannelId != channelB.ChannelId {
+	if newStart.Op != OpTypingStart || newStart.Data.ChannelId != channelB.ChannelId {
 		t.Fatalf("unexpected new-channel start: %+v", newStart)
 	}
 
 	hub.typeReg <- &SetTypingPresenceCommand{start: false, client: sender, typingPresence: channelA}
-	hub.broadcast <- Broadcast{targetServerId: 10, data: []byte("stale stop barrier")}
+	hub.broadcast <- Broadcast{route: Route{ServerId: 10}, data: []byte("stale stop barrier")}
 	if msg := receiveTestMessage(t, observer); string(msg) != "stale stop barrier" {
 		t.Fatalf("stale stop produced an event: %q", msg)
 	}
@@ -225,10 +249,170 @@ func TestTypingSwitchIgnoresStaleStop(t *testing.T) {
 
 	hub.typeReg <- &SetTypingPresenceCommand{start: false, client: sender, typingPresence: channelB}
 	finalStop := receiveTypingEvent(t, observer)
-	if finalStop.Op != OpClientTypingStop || finalStop.TargetChannelId != channelB.ChannelId {
+	if finalStop.Op != OpTypingStop || finalStop.Data.ChannelId != channelB.ChannelId {
 		t.Fatalf("unexpected final typing stop: %+v", finalStop)
 	}
 	if _, exists := hub.typePresenceReg[sender]; exists {
 		t.Fatal("matching stop did not clear typing state")
+	}
+}
+
+func TestMemberSnapshotData(t *testing.T) {
+	hub := newTestHub()
+	client := newTestClient(hub, 42, 10)
+	registerTestClient(hub, client)
+
+	hub.sendServerMemberStatusSnapshot(10, client)
+
+	var eventData EventData[MemberSnapshotData]
+	if err := json.NewDecoder(bytes.NewReader(receiveTestMessage(t, client))).Decode(&eventData); err != nil {
+		t.Fatalf("failed to decode snapshot: %v", err)
+	}
+
+	want := EventData[MemberSnapshotData]{OpMemberStatusSnapshot, MemberSnapshotData{ServerId: 10, Members: []MemberState{{UserId: 42, Status: MemberStatusOnline}}}}
+	if eventData.Op != want.Op || eventData.Data.ServerId != want.Data.ServerId || len(eventData.Data.Members) != 1 || eventData.Data.Members[0] != want.Data.Members[0] {
+		t.Fatalf("unexpected snapshot event data: %+v", eventData)
+	}
+}
+
+func TestUserRouteReachesEveryConnectionOfListedUsersOnly(t *testing.T) {
+	hub := newTestHub()
+	firstTab := newTestClient(hub, 42, 10)
+	secondTab := newTestClient(hub, 42, 10)
+	other := newTestClient(hub, 7)
+	unlisted := newTestClient(hub, 99, 10)
+	for _, client := range []*Client{firstTab, secondTab, other, unlisted} {
+		registerTestClient(hub, client)
+	}
+	go hub.run()
+
+	hub.broadcast <- Broadcast{route: Route{UserIds: []int{42, 7}}, data: []byte("direct")}
+
+	for _, client := range []*Client{firstTab, secondTab, other} {
+		if msg := receiveTestMessage(t, client); string(msg) != "direct" {
+			t.Fatalf("unexpected message for user %d: %q", client.user.Id, msg)
+		}
+	}
+
+	hub.broadcast <- Broadcast{route: Route{ServerId: 10}, data: []byte("barrier")}
+	if msg := receiveTestMessage(t, unlisted); string(msg) != "barrier" {
+		t.Fatalf("unlisted user received a user-routed event: %q", msg)
+	}
+}
+
+func TestRegisterAnnouncesFriendOnlineOncePerUser(t *testing.T) {
+	hub := newTestHub()
+	friend := newTestFriendClient(hub, 7, 42)
+	registerTestClient(hub, friend)
+	go hub.run()
+
+	hub.register <- newTestFriendClient(hub, 42, 7)
+
+	event := receiveFriendStatusEvent(t, friend)
+	if event.Op != OpFriendStatus || event.Data.UserId != 42 || event.Data.Status != MemberStatusOnline {
+		t.Fatalf("unexpected friend status event: %+v", event)
+	}
+
+	hub.register <- newTestFriendClient(hub, 42, 7)
+	hub.broadcast <- Broadcast{route: Route{UserIds: []int{7}}, data: []byte("barrier")}
+
+	if msg := receiveTestMessage(t, friend); string(msg) != "barrier" {
+		t.Fatalf("a second connection re-announced the user as online: %q", msg)
+	}
+}
+
+func TestCloseConnectionsAnnouncesFriendOfflineOnLastConnection(t *testing.T) {
+	hub := newTestHub()
+	friend := newTestFriendClient(hub, 7, 42)
+	registerTestClient(hub, friend)
+
+	firstTab := newTestFriendClient(hub, 42, 7)
+	secondTab := newTestFriendClient(hub, 42, 7)
+	registerTestClient(hub, firstTab)
+	registerTestClient(hub, secondTab)
+
+	hub.closeConnections(firstTab)
+
+	if len(friend.send) != 0 {
+		t.Fatal("closing one of several connections announced the user as offline")
+	}
+
+	hub.closeConnections(secondTab)
+
+	event := receiveFriendStatusEvent(t, friend)
+	if event.Op != OpFriendStatus || event.Data.UserId != 42 || event.Data.Status != MemberStatusOffline {
+		t.Fatalf("unexpected friend status event: %+v", event)
+	}
+}
+
+func TestFriendSnapshotListsOnlyConnectedFriends(t *testing.T) {
+	hub := newTestHub()
+	registerTestClient(hub, newTestFriendClient(hub, 7, 42))
+
+	client := newTestFriendClient(hub, 42, 7, 99)
+	registerTestClient(hub, client)
+
+	hub.sendFriendStatusSnapshot(client)
+
+	var eventData EventData[FriendSnapshotData]
+	if err := json.NewDecoder(bytes.NewReader(receiveTestMessage(t, client))).Decode(&eventData); err != nil {
+		t.Fatalf("failed to decode friend snapshot: %v", err)
+	}
+
+	want := MemberState{UserId: 7, Status: MemberStatusOnline}
+	if eventData.Op != OpFriendStatusSnapshot || len(eventData.Data.Friends) != 1 || eventData.Data.Friends[0] != want {
+		t.Fatalf("unexpected friend snapshot event data: %+v", eventData)
+	}
+}
+
+func TestFriendAddedCommandLinksUsersAndExchangesPresence(t *testing.T) {
+	hub := newTestHub()
+	first := newTestFriendClient(hub, 42)
+	second := newTestFriendClient(hub, 7)
+	registerTestClient(hub, first)
+	registerTestClient(hub, second)
+	go hub.run()
+
+	hub.broadcast <- Broadcast{route: Route{UserIds: []int{42, 7}}, op: OpFriendAdded, data: []byte("friend added")}
+
+	firstStatus := receiveFriendStatusEvent(t, first)
+	if firstStatus.Op != OpFriendStatus || firstStatus.Data.UserId != 7 || firstStatus.Data.Status != MemberStatusOnline {
+		t.Fatalf("unexpected status event for the first user: %+v", firstStatus)
+	}
+
+	secondStatus := receiveFriendStatusEvent(t, second)
+	if secondStatus.Op != OpFriendStatus || secondStatus.Data.UserId != 42 || secondStatus.Data.Status != MemberStatusOnline {
+		t.Fatalf("unexpected status event for the second user: %+v", secondStatus)
+	}
+
+	for _, client := range []*Client{first, second} {
+		if msg := receiveTestMessage(t, client); string(msg) != "friend added" {
+			t.Fatalf("user %d did not receive the forwarded event: %q", client.user.Id, msg)
+		}
+	}
+
+	if !first.friends[7] || !second.friends[42] {
+		t.Fatal("friend_added did not link both users")
+	}
+}
+
+func TestFriendRemovedCommandUnlinksBothUsers(t *testing.T) {
+	hub := newTestHub()
+	first := newTestFriendClient(hub, 42, 7)
+	second := newTestFriendClient(hub, 7, 42)
+	registerTestClient(hub, first)
+	registerTestClient(hub, second)
+	go hub.run()
+
+	hub.broadcast <- Broadcast{route: Route{UserIds: []int{42, 7}}, op: OpFriendRemoved, data: []byte("friend removed")}
+
+	for _, client := range []*Client{first, second} {
+		if msg := receiveTestMessage(t, client); string(msg) != "friend removed" {
+			t.Fatalf("user %d did not receive the forwarded event: %q", client.user.Id, msg)
+		}
+	}
+
+	if first.friends[7] || second.friends[42] {
+		t.Fatal("friend_removed did not unlink both users")
 	}
 }

@@ -17,6 +17,7 @@ class WebSocketTicketController extends Controller
             $ticket = $tickets->issue(
                 $user->id,
                 $user->activeServers()->pluck('servers.id')->toArray(),
+                $user->friends()->pluck('users.id')->toArray()
             );
         } catch (Throwable $e) {
             report($e);

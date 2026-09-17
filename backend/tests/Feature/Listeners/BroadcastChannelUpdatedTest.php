@@ -13,7 +13,7 @@ test('channel updated payload targets every client subscribed to the server', fu
         'server_id' => 12,
         'parent_id' => 34,
         'name' => 'announcements',
-        'type' => ChannelType::Text,
+        'type' => ChannelType::TEXT,
     ]);
     $channel->id = 56;
 
@@ -25,12 +25,12 @@ test('channel updated payload targets every client subscribed to the server', fu
     $operation = $transport->sole();
 
     expect($operation->op)->toBe(BroadcastOperation::CHANNEL_UPDATED)
-        ->and($operation->target->serverId)->toBe(12)
+        ->and($operation->route->serverId)->toBe(12)
         ->and($operation->data)->toBe([
             'id' => 56,
             'server_id' => 12,
             'parent_id' => 34,
-            'type' => ChannelType::Text,
+            'type' => ChannelType::TEXT,
             'name' => 'announcements',
         ]);
 });

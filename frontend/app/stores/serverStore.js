@@ -17,6 +17,7 @@ export const useServerStore = defineStore('server', {
         channelMeta: new Map(),
         channelsLoading: new Set(),
         friends: [],
+        incomingFriendRequests: [],
         channelTypingPresence: new Map(),
         voiceChannelParticipants: new Map(),
         channelLastReadId: new Map(),
@@ -24,7 +25,9 @@ export const useServerStore = defineStore('server', {
         serverUnread: {},
         channelSummaries: new Map(),
         channelSummariesLoading: new Set(),
-        channelSummaryErrors: new Map()
+        channelSummaryErrors: new Map(),
+        directChannels: new Map(),
+        friendStatus: new Map(),
     }),
     getters: {
         activeServer: (state) => state.servers.find((s) => s.id === state.activeServerId) ?? null,
@@ -32,18 +35,7 @@ export const useServerStore = defineStore('server', {
         pinnedServerIds: (state) => state.servers.filter((s) => s.pin_position).map((el) => el.id) ?? [],
         activeServerChannels: (state) => state.serverChannels[state.activeServerId] ?? [],
         activeChannel: (state) => state.activeServerChannels.find(c => c.id === state.activeChannelId) ?? null,
-        activeMessageChannel: (state) => {
-            if (state.activeChannel?.type === 'text') {
-                return state.activeChannel
-            }
-
-            if (state.activeChannel?.type === 'voice') {
-                return state.activeServerChannels.find(c => c.type === 'voice_text' && c.parent_id === state.activeChannel.id) ?? null
-            }
-
-            return null
-        },
-        activeMessageChannelId: (state) => state.activeMessageChannel?.id ?? state.activeChannel?.message_channel_id,
+        activeMessageChannelId: (state) => ['text', 'voice'].includes(state.activeChannel?.type) ? state.activeChannel.id : null,
     },
     actions: {
         async fetchServers() {
@@ -95,8 +87,145 @@ export const useServerStore = defineStore('server', {
 
                 this.serverChannels[serverId] = res?.data ?? [];
             } catch (error) {
-                console.error("Error fetching serve channels:", error);
+                console.error("Error fetching server channels:", error);
                 throw error;
+            }
+        },
+
+        async fetchFriends() {
+            try {
+                const {$apiFetch} = useNuxtApp();
+
+                const res = await $apiFetch("friends");
+
+                this.friends = res?.friends ?? [];
+                this.incomingFriendRequests = res?.incoming ?? [];
+            } catch (error) {
+                console.error("Error fetching friend list", error);
+            }
+        },
+
+        async fetchDirectChannels() {
+            try {
+                const {$apiFetch} = useNuxtApp();
+
+                const res = await $apiFetch("direct");
+
+                this.directChannels = new Map((res?.data ?? []).map((e) => [e.id, e]));
+
+                (res?.data ?? []).forEach((channel) => {
+                    this.setLastMessage(channel.id, channel.last_message_id ?? 0)
+                    this.readChannelMessage(channel.id, channel.last_read_id ?? 0)
+                })
+            } catch (error) {
+                console.error("Error fetching direct channel list", error);
+            }
+        },
+
+        async openDirectChannel(friendId) {
+            const existing = [...this.directChannels.values()].find((c) => c.participants.some((p) => p.id === friendId));
+
+            if (existing) {
+                return existing;
+            }
+
+            const {$apiFetch} = useNuxtApp();
+
+            const res = await $apiFetch(`direct/${friendId}`, {method: "POST"});
+
+            this.directChannels.set(res.data.id, res.data);
+
+            return res.data;
+        },
+
+        setFriendStatusSnapshot(friends) {
+            this.friendStatus = new Map((friends ?? []).map((f) => [f.user_id, f.status]))
+        },
+
+        setFriendStatus(userId, status) {
+            this.friendStatus.set(userId, status)
+        },
+
+        dropFriend(userId) {
+            this.friends = this.friends.filter((f) => f.id !== userId);
+            this.incomingFriendRequests = this.incomingFriendRequests.filter((f) => f.id !== userId);
+            this.friendStatus.delete(userId);
+        },
+
+        addIncomingFriendRequest(user) {
+            if (!user || this.incomingFriendRequests.some((f) => f.id === user.id)) {
+                return;
+            }
+
+            this.incomingFriendRequests = [user, ...this.incomingFriendRequests];
+        },
+
+        addFriend(friend) {
+            if (!friend) {
+                return;
+            }
+
+            this.incomingFriendRequests = this.incomingFriendRequests.filter((f) => f.id !== friend.id);
+            this.friends = [...this.friends.filter((f) => f.id !== friend.id), friend].sort((a, b) => a.name.localeCompare(b.name));
+        },
+
+        async sendFriendRequest(username) {
+            const {$apiFetch} = useNuxtApp();
+
+            const res = await $apiFetch("friends", {method: "POST", body: {username}});
+
+            if (res.accepted) {
+                this.addFriend(res.friend);
+            }
+
+            return res;
+        },
+
+        async acceptFriendRequest(userId) {
+            const {$apiFetch} = useNuxtApp();
+            const friend = this.incomingFriendRequests.find((f) => f.id === userId);
+
+            try {
+                await $apiFetch(`friends/${userId}/accept`, {method: "POST"});
+            } catch (error) {
+                if (error?.statusCode === 404) {
+                    this.dropFriend(userId);
+                }
+
+                throw error;
+            }
+
+            if (friend) {
+                this.addFriend(friend);
+            }
+        },
+
+        async removeFriend(userId) {
+            const {$apiFetch} = useNuxtApp();
+
+            try {
+                await $apiFetch(`friends/${userId}`, {method: "DELETE"});
+            } catch (error) {
+                if (error?.statusCode !== 404) {
+                    throw error;
+                }
+            }
+
+            this.dropFriend(userId);
+        },
+
+        async blockFriend(userId) {
+            const {$apiFetch} = useNuxtApp();
+
+            await $apiFetch(`friends/${userId}/block`, {method: "POST"});
+
+            this.dropFriend(userId);
+
+            const voiceStore = useVoiceStore();
+            const channel = [...this.directChannels.values()].find((c) => c.participants.some((p) => p.id === userId));
+
+            if (channel && voiceStore.activeChannelId === channel.id) {
+                await voiceStore.disconnect(channel.id);
             }
         },
 
@@ -223,7 +352,7 @@ export const useServerStore = defineStore('server', {
             const channels = this.serverChannels[serverId] ?? [];
 
             this.serverChannels[serverId] = channels
-                .filter(channel => channel.id !== channelId && !(channel.type === 'voice_text' && channel.parent_id === channelId))
+                .filter(channel => channel.id !== channelId)
                 .map(channel => channel.parent_id === channelId
                     ? {...channel, parent_id: null}
                     : channel);
@@ -232,7 +361,7 @@ export const useServerStore = defineStore('server', {
         },
 
         setServerMemberStatusSnapshot(serverId, userState) {
-            const statuses = new Map(userState.map((e) => [e.id, e]))
+            const statuses = new Map(userState.map((e) => [e.user_id, e]))
 
             if (!this.serverMembers[serverId]) {
                 this.pendingMemberUpdates[serverId] = userState
@@ -253,7 +382,7 @@ export const useServerStore = defineStore('server', {
 
         setServerMemberStatus(serverId, userState) {
             if (this.serverMembers[serverId]) {
-                const member = this.serverMembers[serverId].find((el) => el.user.id === userState.id)
+                const member = this.serverMembers[serverId].find((el) => el.user.id === userState.user_id)
 
                 if (member) {
                     member.status = userState.status
@@ -504,7 +633,7 @@ export const useServerStore = defineStore('server', {
             }
         },
 
-        async fetchVoicePresence(serverId) {
+        async fetchServerVoicePresence(serverId) {
             if (!serverId) {
                 return;
             }
@@ -517,6 +646,18 @@ export const useServerStore = defineStore('server', {
                 this.applyVoicePresenceSnapshots(res.channels ?? {})
             } catch (error) {
                 console.error("Error fetching voice channel presence:", error);
+            }
+        },
+
+        async fetchDirectVoicePresence() {
+            try {
+                const {$apiFetch} = useNuxtApp();
+
+                const res = await $apiFetch(`direct/voice-presence`);
+
+                this.applyVoicePresenceSnapshots(res.channels ?? {})
+            } catch (error) {
+                console.error("Error fetching direct voice channel presence:", error);
             }
         },
 

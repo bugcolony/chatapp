@@ -16,12 +16,8 @@ class DeleteChannel
     public function execute(Channel $channel): void
     {
         DB::transaction(static function () use ($channel): void {
-            if ($channel->type === ChannelType::Category) {
+            if ($channel->type === ChannelType::CATEGORY) {
                 $channel->children()->update(['parent_id' => null]);
-            }
-
-            if ($channel->type === ChannelType::Voice) {
-                $channel->voiceTextChannel()->delete();
             }
 
             $channel->delete();

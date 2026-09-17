@@ -1,30 +1,120 @@
 <script setup lang="js">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import CurrentUserCard from '~/components/account/CurrentUserCard.vue'
 import AppSidebar from '~/components/layout/AppSidebar.vue'
 import { useChatUIStore } from '~/stores/chatUIStore.js'
+import { userAvatarSrc } from '~/composables/useServerAvatar.js'
 
 const store = useServerStore()
 const uiStore = useChatUIStore()
-const { friends } = storeToRefs(store)
+const toast = useToast()
+const { friends, incomingFriendRequests, friendStatus } = storeToRefs(store)
 const { rightSidebarOpen } = storeToRefs(uiStore)
 
-const onlineCount = computed(() => friends.value.filter((f) => f.online).length)
+const tab = ref('friends')
+const adding = ref(false)
+const username = ref('')
+const addError = ref('')
+const sending = ref(false)
 
-function initials(name) {
-  return name
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
+const tabs = computed(() => [
+  { label: 'Friends', icon: 'i-lucide-users', value: 'friends' },
+  { label: 'Requests', icon: 'i-lucide-user-round-arrow-left', value: 'requests', badge: incomingFriendRequests.value.length || undefined },
+])
+
+const sortedFriends = computed(() => friends.value.toSorted((a, b) => {
+  const aStatus = friendStatus.value.get(a.id) ?? 'offline'
+  const bStatus = friendStatus.value.get(b.id) ?? 'offline'
+
+  if (aStatus !== bStatus) {
+    return aStatus === 'online' ? -1 : 1
+  }
+
+  return a.name.localeCompare(b.name)
+}))
+
+const list = computed(() => (tab.value === 'friends' ? sortedFriends.value : incomingFriendRequests.value))
+
+function toggleAdd() {
+  adding.value = !adding.value
+  addError.value = ''
 }
 
-function avatarStyle(color) {
-  return {
-    background: 'linear-gradient(135deg, ' + color + ', color-mix(in srgb, ' + color + ' 42%, white))',
+async function sendRequest() {
+  if (!username.value.trim() || sending.value) return
+
+  sending.value = true
+  addError.value = ''
+
+  try {
+    const res = await store.sendFriendRequest(username.value)
+
+    toast.add({ title: res.message, color: 'success', icon: 'i-lucide-check' })
+    username.value = ''
+    adding.value = false
+  } catch (err) {
+    addError.value = err?.data?.errors?.username?.[0] ?? err?.data?.message ?? 'Could not send friend request.'
+  } finally {
+    sending.value = false
   }
+}
+
+async function accept(user) {
+  try {
+    await store.acceptFriendRequest(user.id)
+  } catch {
+    toast.add({ title: 'Could not accept request', color: 'error' })
+  }
+}
+
+async function decline(user) {
+  try {
+    await store.removeFriend(user.id)
+  } catch {
+    toast.add({ title: 'Could not decline request', color: 'error' })
+  }
+}
+
+async function unfriend(user) {
+  try {
+    await store.removeFriend(user.id)
+  } catch {
+    toast.add({ title: 'Could not remove friend', color: 'error' })
+  }
+}
+
+async function block(user) {
+  try {
+    await store.blockFriend(user.id)
+  } catch {
+    toast.add({ title: 'Could not block user', color: 'error' })
+  }
+}
+
+async function sendMessage(user) {
+  try {
+    const channel = await store.openDirectChannel(user.id)
+
+    uiStore.setServerDirectTab('direct')
+    await navigateTo(`/app/direct/${channel.id}`)
+  } catch {
+    toast.add({ title: 'Could not open conversation', color: 'error' })
+  }
+}
+
+function friendChipClass(userId) {
+  return friendStatus.value.get(userId) === 'online' ? 'bg-green-400 ring-0' : 'bg-slate-700 ring-0'
+}
+
+function friendMenuItems(user) {
+  return [
+    [
+      { label: 'Send message', icon: 'i-lucide-message-circle', onSelect: () => sendMessage(user) },
+      { label: 'Unfriend', icon: 'i-lucide-user-minus', color: 'error', onSelect: () => unfriend(user) },
+      { label: 'Block', icon: 'i-lucide-ban', color: 'error', onSelect: () => block(user) },
+    ],
+  ]
 }
 </script>
 
@@ -38,56 +128,117 @@ function avatarStyle(color) {
       <CurrentUserCard />
 
       <div class="min-h-0 flex-1 overflow-y-auto p-3 pt-2">
-        <div class="mb-4 flex items-end justify-between gap-3">
+        <div class="mb-3 flex items-end justify-between gap-3">
           <div class="min-w-0">
-            <p class="text-xs font-bold uppercase tracking-[0.24em] text-orange-200/65">
+            <h2 class="text-xs font-bold uppercase tracking-[0.24em] text-orange-200/65">
               Friends
-            </p>
-            <h2 class="mt-1 truncate text-xl font-black text-white">
-              {{ friends.length }} total
             </h2>
           </div>
-          <UBadge
-            variant="soft"
-            color="neutral"
-            class="rounded-full border border-white/10 bg-white/8 px-2.5 py-1 text-xs font-semibold text-slate-200"
-          >
-            {{ onlineCount }} online
-          </UBadge>
         </div>
 
-        <div class="space-y-2">
-          <UButton
-            v-for="friend in friends"
-            :key="friend.name"
-            block
-            color="neutral"
-            variant="ghost"
-            class="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-white/6"
-            :class="friend.online ? 'text-white' : 'text-slate-500'"
-            :ui="{ base: 'justify-start' }"
+        <div class="flex flex-col gap-5">
+          <div class="w-full flex gap-3 items-center">
+            <UTabs
+                v-model="tab"
+                :items="tabs"
+                :content="false"
+                color="neutral"
+                size="sm"
+                class="flex-1"
+            />
+
+            <UButton
+                icon="i-lucide-user-plus"
+                color="neutral"
+                variant="soft"
+                :class="{'ring-2 ring-indigo-500' : adding}"
+                @click="toggleAdd"
+            />
+          </div>
+
+          <form
+              v-if="adding"
+              @submit.prevent="sendRequest"
           >
-            <span
-              class="relative grid size-10 shrink-0 place-items-center rounded-2xl text-xs font-black text-white"
-              :class="friend.online ? '' : 'opacity-50 grayscale'"
-              :style="avatarStyle(friend.color)"
-            >
-              {{ initials(friend.name) }}
-              <span
-                class="absolute bottom-0 right-0 size-2.5 rounded-full ring-2 ring-slate-900"
-                :class="friend.online ? 'bg-emerald-400' : 'bg-slate-600'"
+            <div class="flex gap-2">
+              <UInput
+                  v-model="username"
+                  placeholder="Username"
+                  autofocus
+                  class="flex-1"
+                  :color="addError ? 'error' : 'neutral'"
+                  :highlight="!!addError"
               />
-            </span>
-            <span class="min-w-0 flex-1">
-              <span class="flex items-center gap-2">
-                <span class="truncate text-sm font-bold">{{ friend.name }}</span>
-                <span class="rounded-full bg-white/8 px-2 py-0.5 text-xs font-bold text-slate-400">
-                  {{ friend.handle }}
-                </span>
+              <UButton
+                  type="submit"
+                  label="Send"
+                  :loading="sending"
+                  :disabled="!username.trim()"
+              />
+
+            </div>
+            <p
+                v-if="addError"
+                class="mt-1 px-1 text-xs text-error"
+            >
+              {{ addError }}
+            </p>
+
+            <USeparator class="my-5" />
+          </form>
+        </div>
+
+        <p
+          v-if="!list.length"
+          class="px-2 py-6 text-center text-sm text-slate-500"
+        >
+          {{ tab === 'friends' ? 'No friends yet.' : 'No incoming friend requests.' }}
+        </p>
+
+        <div class="space-y-1">
+          <UContextMenu
+            v-for="user in list"
+            :key="user.id"
+            :items="friendMenuItems(user)"
+            :disabled="tab !== 'friends'"
+            :modal="false"
+            :ui="{
+              content: 'w-44 rounded-xl border border-white/10 bg-slate-950/95 shadow-2xl shadow-black/40 backdrop-blur-xl',
+              item: 'rounded-lg',
+            }"
+          >
+            <div
+              class="flex items-center gap-3 rounded-2xl px-2 py-2 transition hover:bg-white/6"
+              :class="{ 'cursor-pointer': tab === 'friends' }"
+              @click="tab === 'friends' && sendMessage(user)"
+            >
+              <UAvatar
+                :src="userAvatarSrc(user)"
+                size="lg"
+                :chip="tab === 'friends' ? { inset: true, ui: { base: friendChipClass(user.id) } } : undefined"
+              />
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-bold text-white">{{ user.name }}</span>
+                <span class="block truncate text-xs text-slate-500">@{{ user.username }}</span>
               </span>
-              <span class="block truncate text-xs text-slate-500">{{ friend.status }}</span>
-            </span>
-          </UButton>
+              <template v-if="tab === 'requests'">
+                <UButton
+                  icon="i-lucide-check"
+                  color="success"
+                  variant="soft"
+                  size="sm"
+                  @click="accept(user)"
+                />
+                <UButton
+                  icon="i-lucide-x"
+                  color="error"
+                  variant="soft"
+                  size="sm"
+                  @click="decline(user)"
+                />
+              </template>
+            </div>
+          </UContextMenu>
         </div>
       </div>
     </aside>

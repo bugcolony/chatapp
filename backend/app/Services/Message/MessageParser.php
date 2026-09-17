@@ -2,6 +2,7 @@
 
 namespace App\Services\Message;
 
+use App\Models\ChannelParticipant;
 use App\Models\Member;
 use Illuminate\Support\Collection;
 
@@ -22,16 +23,36 @@ class MessageParser
         $mentions = collect();
 
         if (count($matches) === 2 && count($matches[1]) > 0) {
-            Member::query()
-                ->where('members.server_id', $ctx->serverId)
-                ->whereIn('members.user_id', $matches[1])
-                ->get()
-                ->each(function ($member) use (&$mentions) {
-                    $mentions->push([
-                        'user_id' => $member->user_id,
-                        'fallback_name' => $member->nickname,
-                    ]);
-                });
+
+            if ($ctx->serverId) {
+                Member::query()
+                    ->where('members.server_id', $ctx->serverId)
+                    ->whereIn('members.user_id', $matches[1])
+                    ->get()
+                    ->each(function ($member) use (&$mentions) {
+                        $mentions->push([
+                            'user_id' => $member->user_id,
+                            'fallback_name' => $member->nickname,
+                        ]);
+                    });
+
+                return $mentions;
+            }
+
+            if ($ctx->channelId) {
+                ChannelParticipant::query()
+                    ->with('user')
+                    ->where('channel_id', $ctx->channelId)
+                    ->whereIn('user_id', $matches[1])
+                    ->get()
+                    ->each(function ($participant) use (&$mentions) {
+                        $mentions->push([
+                            'user_id' => $participant->user_id,
+                            'fallback_name' => $participant->user->name,
+                        ]);
+                    });
+            }
+
         }
 
         return $mentions;

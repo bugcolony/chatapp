@@ -25,11 +25,11 @@ function voiceServer(): array
 test('only voice channels of the server are looked up', function () {
     [, $server] = voiceServer();
 
-    $voice = Channel::factory()->for($server)->create(['type' => ChannelType::Voice]);
-    Channel::factory()->for($server)->create(['type' => ChannelType::Text]);
+    $voice = Channel::factory()->for($server)->create(['type' => ChannelType::VOICE]);
+    Channel::factory()->for($server)->create(['type' => ChannelType::TEXT]);
 
     $otherServer = Server::factory()->create();
-    Channel::factory()->for($otherServer)->create(['type' => ChannelType::Voice]);
+    Channel::factory()->for($otherServer)->create(['type' => ChannelType::VOICE]);
 
     $presence = Mockery::mock(VoiceChannelPresence::class);
     $presence->shouldReceive('snapshot')
@@ -47,7 +47,7 @@ test('only voice channels of the server are looked up', function () {
 test('a server with no voice channels never touches the presence store', function () {
     [, $server] = voiceServer();
 
-    Channel::factory()->for($server)->create(['type' => ChannelType::Text]);
+    Channel::factory()->for($server)->create(['type' => ChannelType::TEXT]);
 
     $presence = Mockery::mock(VoiceChannelPresence::class);
     $presence->shouldNotReceive('snapshot');
@@ -62,7 +62,7 @@ test('a server with no voice channels never touches the presence store', functio
 test('empty presence serialises as an object rather than an array', function () {
     [, $server] = voiceServer();
 
-    $voice = Channel::factory()->for($server)->create(['type' => ChannelType::Voice]);
+    $voice = Channel::factory()->for($server)->create(['type' => ChannelType::VOICE]);
 
     $presence = Mockery::mock(VoiceChannelPresence::class);
     $presence->shouldReceive('snapshot')->once()->with($voice->id)->andReturn([]);
@@ -77,7 +77,7 @@ test('empty presence serialises as an object rather than an array', function () 
 test('a presence store outage degrades instead of failing the channel list', function () {
     [, $server] = voiceServer();
 
-    Channel::factory()->for($server)->create(['type' => ChannelType::Voice]);
+    Channel::factory()->for($server)->create(['type' => ChannelType::VOICE]);
 
     $presence = Mockery::mock(VoiceChannelPresence::class);
     $presence->shouldReceive('snapshot')->once()->andThrow(new RuntimeException('redis down'));
@@ -90,7 +90,7 @@ test('a presence store outage degrades instead of failing the channel list', fun
 
 test('a non member cannot read voice presence', function () {
     $server = Server::factory()->create();
-    Channel::factory()->for($server)->create(['type' => ChannelType::Voice]);
+    Channel::factory()->for($server)->create(['type' => ChannelType::VOICE]);
 
     Sanctum::actingAs(User::factory()->create());
 

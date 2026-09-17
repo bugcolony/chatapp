@@ -61,7 +61,7 @@ test('creating a server seeds a default general text channel', function () {
     $channel = Channel::first();
     expect($channel->server_id)->toBe($server->id)
         ->and($channel->name)->toBe('general')
-        ->and($channel->type)->toBe(ChannelType::Text);
+        ->and($channel->type)->toBe(ChannelType::TEXT);
 });
 
 test('creating a server seeds and associates its base role without read queries', function () {

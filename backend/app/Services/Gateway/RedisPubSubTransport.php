@@ -17,7 +17,13 @@ class RedisPubSubTransport implements RealtimeTransport
             return;
         }
 
-        $connection = $this->redis->connection(self::CONNECTION);
+        try {
+            $connection = $this->redis->connection(self::CONNECTION);
+        } catch (Throwable $e) {
+            report($e);
+
+            return;
+        }
 
         foreach ($event as $gatewayEvent) {
             try {

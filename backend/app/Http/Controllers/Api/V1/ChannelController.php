@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Channel\DeleteChannel;
-use App\Enums\ChannelType;
 use App\Events\ChannelCreated;
 use App\Events\ChannelUpdated;
 use App\Http\Controllers\Controller;
@@ -14,7 +13,6 @@ use App\Models\Channel;
 use App\Models\Server;
 use Gate;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -23,7 +21,7 @@ class ChannelController extends Controller
     public function index(Server $server)
     {
         try {
-            return $server->channels()->with(['voiceTextChannel'])->get()->toResourceCollection(ChannelResource::class);
+            return $server->channels()->get()->toResourceCollection(ChannelResource::class);
         } catch (Throwable $th) {
             Log::error($th->getMessage());
 
@@ -41,22 +39,7 @@ class ChannelController extends Controller
         Gate::authorize('store', [Channel::class, $server]);
 
         try {
-            $channel = DB::transaction(function () use ($request, $server) {
-                $channel = $server->channels()->create($request->validated());
-
-                if ($channel->type === ChannelType::Voice) {
-                    $voiceTextChannel = $channel->children()->create([
-                        'server_id' => $server->id,
-                        'name' => "$channel->name chat",
-                        'type' => ChannelType::VoiceText,
-                    ]);
-
-                    $channel->setRelation('voiceTextChannel', $voiceTextChannel);
-                }
-
-                return $channel;
-            });
-
+            $channel = $server->channels()->create($request->validated());
 
             ChannelCreated::dispatch($channel);
 

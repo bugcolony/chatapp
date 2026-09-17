@@ -14,6 +14,7 @@ type Client struct {
 	user                *User
 	hub                 *Hub
 	serverSubscriptions []int
+	friends             map[int]bool
 	once                sync.Once
 	ws                  *websocket.Conn
 	send                chan []byte
@@ -76,7 +77,7 @@ func (c *Client) reader() {
 			return
 		}
 
-		var command ClientCommand
+		var command EventData[ChannelRef]
 
 		decoder := json.NewDecoder(bytes.NewReader(msg))
 
@@ -84,15 +85,17 @@ func (c *Client) reader() {
 			continue
 		}
 
-		if command.ServerId != nil && !slices.Contains(c.serverSubscriptions, *command.ServerId) {
+		ref := command.Data
+
+		if ref.ServerId != nil && !slices.Contains(c.serverSubscriptions, *ref.ServerId) {
 			continue
 		}
 
 		switch command.Op {
-		case OpClientActiveServer:
-			c.hub.activateServer <- &SetActiveServerCommand{c, command.ServerId}
-		case OpClientTypingStart:
-			if command.ServerId == nil || command.ChannelId == nil {
+		case OpServerActive:
+			c.hub.activateServer <- &SetActiveServerCommand{c, ref.ServerId}
+		case OpTypingStart:
+			if ref.ServerId == nil || ref.ChannelId == nil {
 				continue
 			}
 
@@ -102,13 +105,13 @@ func (c *Client) reader() {
 				start:  true,
 				client: c,
 				typingPresence: &TypingState{
-					ServerId:  *command.ServerId,
-					ChannelId: *command.ChannelId,
+					ServerId:  *ref.ServerId,
+					ChannelId: *ref.ChannelId,
 					ExpiresAt: &expiresAt,
 				},
 			}
-		case OpClientTypingStop:
-			if command.ServerId == nil || command.ChannelId == nil {
+		case OpTypingStop:
+			if ref.ServerId == nil || ref.ChannelId == nil {
 				continue
 			}
 
@@ -116,8 +119,8 @@ func (c *Client) reader() {
 				start:  false,
 				client: c,
 				typingPresence: &TypingState{
-					ServerId:  *command.ServerId,
-					ChannelId: *command.ChannelId,
+					ServerId:  *ref.ServerId,
+					ChannelId: *ref.ChannelId,
 				},
 			}
 		}

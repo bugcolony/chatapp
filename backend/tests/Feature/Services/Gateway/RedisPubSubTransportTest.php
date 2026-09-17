@@ -12,14 +12,14 @@ test('events are published to the configured channel on the realtime connection'
         ->once()
         ->withArgs(function (string $channel, string $payload): bool {
             return $channel === 'test.channel'
-                && json_decode($payload, true, flags: JSON_THROW_ON_ERROR)['targetServerId'] === 12;
+                && json_decode($payload, true, flags: JSON_THROW_ON_ERROR)['gateway']['route']['server_id'] === 12;
         });
 
     $redis = Mockery::mock(RedisFactory::class);
     $redis->shouldReceive('connection')->once()->with('realtime')->andReturn($connection);
 
     new RedisPubSubTransport($redis, 'test.channel')->publish(
-        GatewayEvent::channelDeleted(channelId: 56, serverId: 12, type: ChannelType::Text),
+        GatewayEvent::channelDeleted(channelId: 56, serverId: 12, type: ChannelType::TEXT),
     );
 });
 
@@ -42,7 +42,20 @@ test('a gateway outage is reported instead of failing the caller', function () {
     $redis->shouldReceive('connection')->once()->andReturn($connection);
 
     new RedisPubSubTransport($redis, 'test.channel')->publish(
-        GatewayEvent::channelDeleted(channelId: 56, serverId: 12, type: ChannelType::Text),
+        GatewayEvent::channelDeleted(channelId: 56, serverId: 12, type: ChannelType::TEXT),
+    );
+
+    Exceptions::assertReported(RuntimeException::class);
+});
+
+test('a refused realtime connection is reported instead of failing the caller', function () {
+    Exceptions::fake();
+
+    $redis = Mockery::mock(RedisFactory::class);
+    $redis->shouldReceive('connection')->once()->andThrow(new RuntimeException('connection refused'));
+
+    new RedisPubSubTransport($redis, 'test.channel')->publish(
+        GatewayEvent::channelDeleted(channelId: 56, serverId: 12, type: ChannelType::TEXT),
     );
 
     Exceptions::assertReported(RuntimeException::class);

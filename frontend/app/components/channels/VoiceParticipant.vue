@@ -7,34 +7,55 @@ import {useVoiceStore} from "~/stores/voiceStore.js";
 
 const props = defineProps({
   userId: {
-    type: String,
+    type: [String, Number],
     required: true,
   },
   participant: {
     type: Object,
-    required: true,
+    default: null,
+  },
+  direct: {
+    type: Boolean,
+    default: false
+  },
+  channelId: {
+    type: Number,
+    required: true
   }
 })
 
 const store = useServerStore()
 const voiceStore = useVoiceStore()
 const {microphoneEnabled} = storeToRefs(voiceStore)
-const {activeServerId, serverMembers} = storeToRefs(store)
-const member = computed(() => serverMembers.value[activeServerId.value]?.find((m) => m.user.id === Number(props.userId)) ?? null)
-const trackList = computed(() => Array.from(props.participant.tracks).map((entry) => entry[1]) ?? [])
+const {activeServerId, serverMembers, directChannels} = storeToRefs(store)
+const member = computed(() => {
+  if (props.direct) {
+    return directChannels.value.get(props.channelId)?.participants.find((p)=> p.id === Number(props.userId)) ?? null
+  } else {
+    return serverMembers.value[activeServerId.value]?.find((m) => m.user.id === Number(props.userId)) ?? null
+  }
+})
+const displayName = computed(() => member.value?.display_name ?? member.value?.name ?? '')
+const trackList = computed(() => props.participant ? Array.from(props.participant.tracks).map((entry) => entry[1]) : [])
 const microphone = computed(() => trackList.value.find((t) => t.source === 'microphone'))
 const camera = computed(() => trackList.value.find((t) => t.source === 'camera'))
 const screen = computed(() => trackList.value.find((t) => t.source === 'screen_share'))
 const screenAudio = computed(() => trackList.value.find((t) => t.source === 'screen_share_audio'))
 const isStreaming = computed(() => (camera.value && !camera.value?.muted) || (screen.value && !screen.value?.muted))
-const isMuted = computed(() => props.participant.local ? !microphoneEnabled.value : trackList.value.length === 0 || (microphone.value && microphone.value?.muted))
+const isMuted = computed(() => {
+  if (!props.participant) {
+    return false
+  }
+
+  return props.participant.local ? !microphoneEnabled.value : trackList.value.length === 0 || (microphone.value && microphone.value?.muted)
+})
 
 </script>
 
 <template>
 <div
     class="group rounded-md aspect-video w-full flex justify-center items-center relative"
-    :class="participant.isSpeaking && !microphone?.muted ? 'ring-4 ring-indigo-400' : 'ring-1 ring-slate-700/30'"
+    :class="participant?.isSpeaking && !microphone?.muted ? 'ring-4 ring-indigo-400' : 'ring-1 ring-slate-700/30'"
 >
   <UAvatar
       :src="userAvatarSrc(member)"
@@ -45,7 +66,7 @@ const isMuted = computed(() => props.participant.local ? !microphoneEnabled.valu
   <AudioTrack v-if="screenAudio" :key="screenAudio.sid" :track="screenAudio"/>
   <VideoTrack v-if="camera && !camera?.muted" :key="camera.sid" :track="camera"/>
   <VideoTrack v-if="screen && !screen?.muted" :key="screen.sid" :track="screen"/>
-  <span class="hidden group-hover:block px-2 py-1 text-slate-400 text-xs absolute bottom-0 left-0">{{member?.display_name}}</span>
+  <span class="hidden group-hover:block px-2 py-1 text-slate-400 text-xs absolute bottom-0 left-0">{{displayName}}</span>
   <UIcon
       v-show="isMuted"
       name="i-lucide-mic-off"

@@ -7,7 +7,7 @@ use App\Exceptions\InvalidWebhookSignature;
 use Exception;
 use Livekit\WebhookEvent;
 
-class LiveKitWebhookVerifier
+readonly class LiveKitWebhookVerifier
 {
     public function __construct(private WebhookReceiver $receiver) {}
 

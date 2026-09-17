@@ -13,7 +13,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('server_id')->constrained();
             $table->string('name');
-            $table->string('type')->default(ChannelType::Text->value);
+            $table->string('type')->default(ChannelType::TEXT->value);
             $table->bigInteger('position')->default(0);
             $table->boolean('is_locked')->default(false);
             $table->timestamps();

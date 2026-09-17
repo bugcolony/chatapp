@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\FriendStatus;
 use App\Services\DemoFixtureManager;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -99,6 +100,58 @@ class User extends Authenticatable
     public function channelReads(): HasMany
     {
         return $this->hasMany(ChannelRead::class);
+    }
+
+    public function friends(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            self::class,
+            'friends',
+            'user_id',
+            'friend_id'
+        )->wherePivot('status', FriendStatus::FRIEND->value);
+    }
+
+    public function blockedUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            self::class,
+            'friends',
+            'user_id',
+            'friend_id'
+        )->wherePivot('status', FriendStatus::BLOCKED->value);
+    }
+
+    public function incomingFriendRequests(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            self::class,
+            'friends',
+            'user_id',
+            'friend_id'
+        )->wherePivot('status', FriendStatus::INCOMING_PENDING->value);
+    }
+
+    public function sentFriendRequests(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            self::class,
+            'friends',
+            'user_id',
+            'friend_id'
+        )->wherePivot('status', FriendStatus::OUTGOING_PENDING->value);
+    }
+
+    public function directMessageChannels(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Channel::class,
+            'channel_participants',
+            'user_id',
+            'channel_id'
+        )->where(fn ($query) => $query
+            ->whereNull('channel_participants.hidden_before_message_id')
+            ->orWhereColumn('channel_participants.hidden_before_message_id', '<', 'channels.last_message_id'));
     }
 
     public function avatarUrl(): ?string
