@@ -47,3 +47,16 @@ test('a gateway outage is reported instead of failing the caller', function () {
 
     Exceptions::assertReported(RuntimeException::class);
 });
+
+test('a refused realtime connection is reported instead of failing the caller', function () {
+    Exceptions::fake();
+
+    $redis = Mockery::mock(RedisFactory::class);
+    $redis->shouldReceive('connection')->once()->andThrow(new RuntimeException('connection refused'));
+
+    new RedisPubSubTransport($redis, 'test.channel')->publish(
+        GatewayEvent::channelDeleted(channelId: 56, serverId: 12, type: ChannelType::TEXT),
+    );
+
+    Exceptions::assertReported(RuntimeException::class);
+});
