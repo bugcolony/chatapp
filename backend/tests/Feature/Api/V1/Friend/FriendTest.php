@@ -187,6 +187,35 @@ test('blocking does not erase the other side\'s block', function () {
         ->and(friendStatus($bob, $alice))->toBe(FriendStatus::BLOCKED);
 });
 
+test('requesting a user you blocked lifts the block and sends the request', function () {
+    [$alice, $bob] = User::factory()->count(2)->create();
+
+    Sanctum::actingAs($alice);
+    $this->postJson("/api/v1/friends/{$bob->id}/block")->assertOk();
+
+    $this->postJson('/api/v1/friends', ['username' => $bob->username])
+        ->assertCreated()
+        ->assertJson(['message' => 'Friend request sent.', 'accepted' => false]);
+
+    expect(friendStatus($alice, $bob))->toBe(FriendStatus::OUTGOING_PENDING)
+        ->and(friendStatus($bob, $alice))->toBe(FriendStatus::INCOMING_PENDING);
+});
+
+test('requesting a user you blocked is rejected when they blocked you back', function () {
+    [$alice, $bob] = User::factory()->count(2)->create();
+
+    Friend::create(['user_id' => $alice->id, 'friend_id' => $bob->id, 'status' => FriendStatus::BLOCKED]);
+    Friend::create(['user_id' => $bob->id, 'friend_id' => $alice->id, 'status' => FriendStatus::BLOCKED]);
+
+    Sanctum::actingAs($alice);
+    $this->postJson('/api/v1/friends', ['username' => $bob->username])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('username');
+
+    expect(friendStatus($alice, $bob))->toBe(FriendStatus::BLOCKED)
+        ->and(friendStatus($bob, $alice))->toBe(FriendStatus::BLOCKED);
+});
+
 test('unfriend cannot be used to lift your own block', function () {
     [$alice, $bob] = User::factory()->count(2)->create();
 

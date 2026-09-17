@@ -19,7 +19,7 @@ const uiStore = useChatUIStore()
 const authStore = useAuthStore()
 const voiceStore = useVoiceStore()
 const { activeChannelId } = storeToRefs(voiceStore)
-const { directChannels, voiceChannelParticipants } = storeToRefs(store)
+const { directChannels, voiceChannelParticipants, friends } = storeToRefs(store)
 const { voiceTextVisible } = storeToRefs(uiStore)
 
 const channelId = computed(() => Number(route.params.channelId))
@@ -31,6 +31,7 @@ const callParticipants = computed(() => voiceChannelParticipants.value.get(chann
 const joined = computed(() => activeChannelId.value === channelId.value)
 const showVoicePanel = computed(() => joined.value || callParticipants.value.size > 0)
 const voicePanelHidden = ref(false)
+const locked = computed(() => !channelParticipants.value.some((p) => friends.value.some((f) => f.id === p.id)))
 
 uiStore.setServerDirectTab('direct')
 
@@ -73,6 +74,7 @@ uiStore.setServerDirectTab('direct')
           <span class="text-xs font-bold text-white">{{ title }}</span>
         </div>
         <UButton
+            v-if="!locked"
             icon="i-lucide-phone"
             color="neutral"
             variant="ghost"
@@ -95,12 +97,14 @@ uiStore.setServerDirectTab('direct')
           :channel-id="channelId"
           direct
           :auto-connect="false"
+          :locked="locked"
           :class="voicePanelHidden ? '' : 'flex-1'"
         />
         <MessageThread
           v-show="!showVoicePanel || voicePanelHidden || voiceTextVisible"
           :key="channelId"
           :channel-id="channelId"
+          :locked="locked"
           class="min-w-0 flex-1 self-stretch"
         />
       </div>

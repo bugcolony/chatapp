@@ -19,6 +19,10 @@ const props = defineProps({
   autoConnect: {
     type: Boolean,
     default: true
+  },
+  locked: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -81,7 +85,7 @@ function handleLeaveJoinClick() {
     return
   }
 
-  if (connectionStateDisconnected.value) {
+  if (connectionStateDisconnected.value && !props.locked) {
     voiceStore.connect(joinedChannelId)
   }
 }
@@ -161,8 +165,8 @@ function handleLeaveJoinClick() {
         </UTooltip>
       </div>
 
-      <USeparator orientation="vertical" class="h-7 mx-2"/>
-      <LoaderOverlay :loading="connectionStateConnecting">
+      <USeparator v-if="!locked || !connectionStateDisconnected" orientation="vertical" class="h-7 mx-2"/>
+      <LoaderOverlay v-if="!locked || !connectionStateDisconnected" :loading="connectionStateConnecting">
         <div
             class=" rounded-md cursor-pointer flex justify-center items-center p-1 w-9 h-9"
             :class="connectionStateDisconnected ? 'bg-green-500 hover:bg-green-300' : 'bg-red-700 hover:bg-red-500'"

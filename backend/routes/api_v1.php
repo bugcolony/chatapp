@@ -86,6 +86,7 @@ Route::middleware(['auth:sanctum', AccountClosed::class, NotBanned::class, Ensur
         Route::post('{friend}/accept', [FriendController::class, 'accept']);
         Route::delete('{friend}', [FriendController::class, 'destroy']);
         Route::post('{friend}/block', [FriendController::class, 'block']);
+        Route::delete('{friend}/block', [FriendController::class, 'unblock']);
     });
 
     Route::prefix('direct')->group(static function () {

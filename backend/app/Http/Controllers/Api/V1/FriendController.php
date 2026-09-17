@@ -10,6 +10,8 @@ use App\Http\Requests\Api\V1\Friend\StoreFriendRequest;
 use App\Http\Resources\Api\V1\FriendResource;
 use App\Models\Friend;
 use App\Models\User;
+use App\Services\Gateway\GatewayEvent;
+use App\Services\Gateway\RealtimeTransport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -49,7 +51,7 @@ class FriendController extends Controller
     /**
      * @throws Throwable
      */
-    public function destroy(User $friend): JsonResponse
+    public function destroy(User $friend, RealtimeTransport $transport): JsonResponse
     {
         $user = auth()->user();
 
@@ -73,13 +75,15 @@ class FriendController extends Controller
 
         abort_unless($removed, 404);
 
+        $transport->publish(GatewayEvent::friendRemoved($user->id, $friend->id));
+
         return response()->json(['message' => 'removed']);
     }
 
     /**
      * @throws Throwable
      */
-    public function block(User $friend): JsonResponse
+    public function block(User $friend, RealtimeTransport $transport): JsonResponse
     {
         $user = auth()->user();
 
@@ -97,6 +101,20 @@ class FriendController extends Controller
                 ->delete();
         });
 
+        $transport->publish(GatewayEvent::friendRemoved($user->id, $friend->id));
+
         return response()->json(['message' => 'blocked']);
+    }
+
+    public function unblock(User $friend): JsonResponse
+    {
+        $unblocked = Friend::query()
+            ->between(auth()->id(), $friend->id)
+            ->where('status', FriendStatus::BLOCKED)
+            ->delete();
+
+        abort_unless($unblocked, 404);
+
+        return response()->json(['message' => 'unblocked']);
     }
 }

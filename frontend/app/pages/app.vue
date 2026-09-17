@@ -54,10 +54,12 @@ onMounted(async () => {
     return;
   }
 
-  await store.fetchServers()
-  await store.fetchFriends()
-  await store.fetchDirectChannels()
-  await store.fetchDirectVoicePresence()
+  await Promise.all([
+    store.fetchServers(),
+    store.fetchFriends(),
+    store.fetchDirectChannels(),
+    store.fetchDirectVoicePresence(),
+  ])
   // await store.fetchUserUnread()
   await connect()
 

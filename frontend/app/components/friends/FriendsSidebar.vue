@@ -9,7 +9,7 @@ import { userAvatarSrc } from '~/composables/useServerAvatar.js'
 const store = useServerStore()
 const uiStore = useChatUIStore()
 const toast = useToast()
-const { friends, incomingFriendRequests } = storeToRefs(store)
+const { friends, incomingFriendRequests, friendStatus } = storeToRefs(store)
 const { rightSidebarOpen } = storeToRefs(uiStore)
 
 const tab = ref('friends')
@@ -23,7 +23,18 @@ const tabs = computed(() => [
   { label: 'Requests', icon: 'i-lucide-user-round-arrow-left', value: 'requests', badge: incomingFriendRequests.value.length || undefined },
 ])
 
-const list = computed(() => (tab.value === 'friends' ? friends.value : incomingFriendRequests.value))
+const sortedFriends = computed(() => friends.value.toSorted((a, b) => {
+  const aStatus = friendStatus.value.get(a.id) ?? 'offline'
+  const bStatus = friendStatus.value.get(b.id) ?? 'offline'
+
+  if (aStatus !== bStatus) {
+    return aStatus === 'online' ? -1 : 1
+  }
+
+  return a.name.localeCompare(b.name)
+}))
+
+const list = computed(() => (tab.value === 'friends' ? sortedFriends.value : incomingFriendRequests.value))
 
 function toggleAdd() {
   adding.value = !adding.value
@@ -90,6 +101,10 @@ async function sendMessage(user) {
   } catch {
     toast.add({ title: 'Could not open conversation', color: 'error' })
   }
+}
+
+function friendChipClass(userId) {
+  return friendStatus.value.get(userId) === 'online' ? 'bg-green-400 ring-0' : 'bg-slate-700 ring-0'
 }
 
 function friendMenuItems(user) {
@@ -200,6 +215,7 @@ function friendMenuItems(user) {
               <UAvatar
                 :src="userAvatarSrc(user)"
                 size="lg"
+                :chip="tab === 'friends' ? { inset: true, ui: { base: friendChipClass(user.id) } } : undefined"
               />
               <span class="min-w-0 flex-1">
                 <span class="block truncate text-sm font-bold text-white">{{ user.name }}</span>

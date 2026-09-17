@@ -51,6 +51,30 @@ func registerTestClient(hub *Hub, client *Client) {
 	}
 }
 
+func newTestFriendClient(hub *Hub, userID int, friendIDs ...int) *Client {
+	client := newTestClient(hub, userID)
+	client.user.Friends = friendIDs
+	client.friends = make(map[int]bool, len(friendIDs))
+
+	for _, friendID := range friendIDs {
+		client.friends[friendID] = true
+	}
+	client.send = make(chan []byte, 8)
+
+	return client
+}
+
+func receiveFriendStatusEvent(t *testing.T, client *Client) EventData[FriendStatusData] {
+	t.Helper()
+
+	var event EventData[FriendStatusData]
+	if err := json.Unmarshal(receiveTestMessage(t, client), &event); err != nil {
+		t.Fatalf("failed to decode friend status event: %v", err)
+	}
+
+	return event
+}
+
 func receiveTestMessage(t *testing.T, client *Client) []byte {
 	t.Helper()
 
@@ -273,5 +297,122 @@ func TestUserRouteReachesEveryConnectionOfListedUsersOnly(t *testing.T) {
 	hub.broadcast <- Broadcast{route: Route{ServerId: 10}, data: []byte("barrier")}
 	if msg := receiveTestMessage(t, unlisted); string(msg) != "barrier" {
 		t.Fatalf("unlisted user received a user-routed event: %q", msg)
+	}
+}
+
+func TestRegisterAnnouncesFriendOnlineOncePerUser(t *testing.T) {
+	hub := newTestHub()
+	friend := newTestFriendClient(hub, 7, 42)
+	registerTestClient(hub, friend)
+	go hub.run()
+
+	hub.register <- newTestFriendClient(hub, 42, 7)
+
+	event := receiveFriendStatusEvent(t, friend)
+	if event.Op != OpFriendStatus || event.Data.UserId != 42 || event.Data.Status != MemberStatusOnline {
+		t.Fatalf("unexpected friend status event: %+v", event)
+	}
+
+	hub.register <- newTestFriendClient(hub, 42, 7)
+	hub.broadcast <- Broadcast{route: Route{UserIds: []int{7}}, data: []byte("barrier")}
+
+	if msg := receiveTestMessage(t, friend); string(msg) != "barrier" {
+		t.Fatalf("a second connection re-announced the user as online: %q", msg)
+	}
+}
+
+func TestCloseConnectionsAnnouncesFriendOfflineOnLastConnection(t *testing.T) {
+	hub := newTestHub()
+	friend := newTestFriendClient(hub, 7, 42)
+	registerTestClient(hub, friend)
+
+	firstTab := newTestFriendClient(hub, 42, 7)
+	secondTab := newTestFriendClient(hub, 42, 7)
+	registerTestClient(hub, firstTab)
+	registerTestClient(hub, secondTab)
+
+	hub.closeConnections(firstTab)
+
+	if len(friend.send) != 0 {
+		t.Fatal("closing one of several connections announced the user as offline")
+	}
+
+	hub.closeConnections(secondTab)
+
+	event := receiveFriendStatusEvent(t, friend)
+	if event.Op != OpFriendStatus || event.Data.UserId != 42 || event.Data.Status != MemberStatusOffline {
+		t.Fatalf("unexpected friend status event: %+v", event)
+	}
+}
+
+func TestFriendSnapshotListsOnlyConnectedFriends(t *testing.T) {
+	hub := newTestHub()
+	registerTestClient(hub, newTestFriendClient(hub, 7, 42))
+
+	client := newTestFriendClient(hub, 42, 7, 99)
+	registerTestClient(hub, client)
+
+	hub.sendFriendStatusSnapshot(client)
+
+	var eventData EventData[FriendSnapshotData]
+	if err := json.NewDecoder(bytes.NewReader(receiveTestMessage(t, client))).Decode(&eventData); err != nil {
+		t.Fatalf("failed to decode friend snapshot: %v", err)
+	}
+
+	want := MemberState{UserId: 7, Status: MemberStatusOnline}
+	if eventData.Op != OpFriendStatusSnapshot || len(eventData.Data.Friends) != 1 || eventData.Data.Friends[0] != want {
+		t.Fatalf("unexpected friend snapshot event data: %+v", eventData)
+	}
+}
+
+func TestFriendAddedCommandLinksUsersAndExchangesPresence(t *testing.T) {
+	hub := newTestHub()
+	first := newTestFriendClient(hub, 42)
+	second := newTestFriendClient(hub, 7)
+	registerTestClient(hub, first)
+	registerTestClient(hub, second)
+	go hub.run()
+
+	hub.broadcast <- Broadcast{route: Route{UserIds: []int{42, 7}}, op: OpFriendAdded, data: []byte("friend added")}
+
+	firstStatus := receiveFriendStatusEvent(t, first)
+	if firstStatus.Op != OpFriendStatus || firstStatus.Data.UserId != 7 || firstStatus.Data.Status != MemberStatusOnline {
+		t.Fatalf("unexpected status event for the first user: %+v", firstStatus)
+	}
+
+	secondStatus := receiveFriendStatusEvent(t, second)
+	if secondStatus.Op != OpFriendStatus || secondStatus.Data.UserId != 42 || secondStatus.Data.Status != MemberStatusOnline {
+		t.Fatalf("unexpected status event for the second user: %+v", secondStatus)
+	}
+
+	for _, client := range []*Client{first, second} {
+		if msg := receiveTestMessage(t, client); string(msg) != "friend added" {
+			t.Fatalf("user %d did not receive the forwarded event: %q", client.user.Id, msg)
+		}
+	}
+
+	if !first.friends[7] || !second.friends[42] {
+		t.Fatal("friend_added did not link both users")
+	}
+}
+
+func TestFriendRemovedCommandUnlinksBothUsers(t *testing.T) {
+	hub := newTestHub()
+	first := newTestFriendClient(hub, 42, 7)
+	second := newTestFriendClient(hub, 7, 42)
+	registerTestClient(hub, first)
+	registerTestClient(hub, second)
+	go hub.run()
+
+	hub.broadcast <- Broadcast{route: Route{UserIds: []int{42, 7}}, op: OpFriendRemoved, data: []byte("friend removed")}
+
+	for _, client := range []*Client{first, second} {
+		if msg := receiveTestMessage(t, client); string(msg) != "friend removed" {
+			t.Fatalf("user %d did not receive the forwarded event: %q", client.user.Id, msg)
+		}
+	}
+
+	if first.friends[7] || second.friends[42] {
+		t.Fatal("friend_removed did not unlink both users")
 	}
 }

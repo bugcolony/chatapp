@@ -11,4 +11,7 @@ enum BroadcastOperation: int
     case VOICE_USER_JOINED = 5;
     case VOICE_USER_LEFT = 6;
     case VOICE_CHANNEL_CLOSED = 7;
+    case FRIEND_REQUEST_RECEIVED = 8;
+    case FRIEND_ADDED = 9;
+    case FRIEND_REMOVED = 10;
 }

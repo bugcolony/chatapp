@@ -36,6 +36,7 @@ func (h *Hub) closeConnections(client *Client) {
 
 	if _, exists := h.users[client.user.Id]; !exists {
 		h.broadcastMemberStateChange(client, MemberStatusOffline)
+		h.broadcastFriendStateChange(client, MemberStatusOffline)
 	}
 }
 
@@ -81,6 +82,101 @@ func (h *Hub) broadcastServerMemberStateChange(serverId int, client *Client, sta
 	}
 
 	h.broadcastMessageTo(h.activeServerClients[serverId], p)
+}
+
+func friendStatusPayload(userId int, status string) ([]byte, bool) {
+	p, err := json.Marshal(EventData[FriendStatusData]{OpFriendStatus, FriendStatusData{
+		UserId: userId,
+		Status: status,
+	}})
+
+	return p, err == nil
+}
+
+func (h *Hub) broadcastFriendStateChange(client *Client, status string) {
+	p, ok := friendStatusPayload(client.user.Id, status)
+
+	if !ok {
+		return
+	}
+
+	for friendId := range client.friends {
+		h.broadcastMessageTo(h.users[friendId], p)
+	}
+}
+
+func (h *Hub) sendFriendStatus(recipientId int, userId int, status string) {
+	p, ok := friendStatusPayload(userId, status)
+
+	if !ok {
+		return
+	}
+
+	h.broadcastMessageTo(h.users[recipientId], p)
+}
+
+func (h *Hub) applyGatewayOp(msg Broadcast) {
+	if len(msg.route.UserIds) != 2 {
+		return
+	}
+
+	first, second := msg.route.UserIds[0], msg.route.UserIds[1]
+
+	switch msg.op {
+	case OpFriendAdded:
+		h.linkFriend(first, second)
+		h.linkFriend(second, first)
+		h.exchangeFriendPresence(first, second)
+	case OpFriendRemoved:
+		h.unlinkFriend(first, second)
+		h.unlinkFriend(second, first)
+	}
+}
+
+func (h *Hub) linkFriend(userId int, friendId int) {
+	for client := range h.users[userId] {
+		client.friends[friendId] = true
+	}
+}
+
+func (h *Hub) unlinkFriend(userId int, friendId int) {
+	for client := range h.users[userId] {
+		delete(client.friends, friendId)
+	}
+}
+
+func (h *Hub) exchangeFriendPresence(first int, second int) {
+	if len(h.users[second]) > 0 {
+		h.sendFriendStatus(first, second, MemberStatusOnline)
+	}
+
+	if len(h.users[first]) > 0 {
+		h.sendFriendStatus(second, first, MemberStatusOnline)
+	}
+}
+
+func (h *Hub) friendStatusSnapshot(client *Client) []MemberState {
+	friends := []MemberState{}
+
+	for friendId := range client.friends {
+		if len(h.users[friendId]) > 0 {
+			friends = append(friends, MemberState{friendId, MemberStatusOnline})
+		}
+	}
+
+	return friends
+}
+
+func (h *Hub) sendFriendStatusSnapshot(client *Client) {
+	p, err := json.Marshal(EventData[FriendSnapshotData]{OpFriendStatusSnapshot, FriendSnapshotData{
+		Friends: h.friendStatusSnapshot(client),
+	}})
+
+	if err != nil {
+		return
+	}
+
+	h.broadcastMessageTo(map[*Client]bool{client: true}, p)
 }
 
 func (h *Hub) broadcastTypePresenceEventStart(client *Client, ts *TypingState) {
@@ -185,8 +281,6 @@ func (h *Hub) run() {
 
 			if !ok {
 				h.users[client.user.Id] = make(map[*Client]bool)
-
-				// Broadcast to friends that user is online
 			}
 
 			h.users[client.user.Id][client] = true
@@ -194,6 +288,12 @@ func (h *Hub) run() {
 			if _, exists := h.connections[client]; !exists {
 				h.connections[client] = true
 			}
+
+			if !ok {
+				h.broadcastFriendStateChange(client, MemberStatusOnline)
+			}
+
+			h.sendFriendStatusSnapshot(client)
 		case activeServer := <-h.activateServer:
 			if !h.connections[activeServer.client] {
 				continue
@@ -234,6 +334,8 @@ func (h *Hub) run() {
 
 			h.broadcastTypePresenceEvent(typeCommand.client, typeCommand.typingPresence, op)
 		case msg := <-h.broadcast:
+			h.applyGatewayOp(msg)
+
 			if len(msg.route.UserIds) > 0 {
 				for _, userId := range msg.route.UserIds {
 					h.broadcastMessageTo(h.users[userId], msg.data)

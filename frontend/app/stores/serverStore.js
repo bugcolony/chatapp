@@ -27,6 +27,7 @@ export const useServerStore = defineStore('server', {
         channelSummariesLoading: new Set(),
         channelSummaryErrors: new Map(),
         directChannels: new Map(),
+        friendStatus: new Map(),
     }),
     getters: {
         activeServer: (state) => state.servers.find((s) => s.id === state.activeServerId) ?? null,
@@ -137,14 +138,35 @@ export const useServerStore = defineStore('server', {
             return res.data;
         },
 
+        setFriendStatusSnapshot(friends) {
+            this.friendStatus = new Map((friends ?? []).map((f) => [f.user_id, f.status]))
+        },
+
+        setFriendStatus(userId, status) {
+            this.friendStatus.set(userId, status)
+        },
+
         dropFriend(userId) {
             this.friends = this.friends.filter((f) => f.id !== userId);
             this.incomingFriendRequests = this.incomingFriendRequests.filter((f) => f.id !== userId);
+            this.friendStatus.delete(userId);
+        },
+
+        addIncomingFriendRequest(user) {
+            if (!user || this.incomingFriendRequests.some((f) => f.id === user.id)) {
+                return;
+            }
+
+            this.incomingFriendRequests = [user, ...this.incomingFriendRequests];
         },
 
         addFriend(friend) {
-            this.dropFriend(friend.id);
-            this.friends = [...this.friends, friend].sort((a, b) => a.name.localeCompare(b.name));
+            if (!friend) {
+                return;
+            }
+
+            this.incomingFriendRequests = this.incomingFriendRequests.filter((f) => f.id !== friend.id);
+            this.friends = [...this.friends.filter((f) => f.id !== friend.id), friend].sort((a, b) => a.name.localeCompare(b.name));
         },
 
         async sendFriendRequest(username) {
@@ -198,6 +220,13 @@ export const useServerStore = defineStore('server', {
             await $apiFetch(`friends/${userId}/block`, {method: "POST"});
 
             this.dropFriend(userId);
+
+            const voiceStore = useVoiceStore();
+            const channel = [...this.directChannels.values()].find((c) => c.participants.some((p) => p.id === userId));
+
+            if (channel && voiceStore.activeChannelId === channel.id) {
+                await voiceStore.disconnect(channel.id);
+            }
         },
 
         async fetchServerMembers(serverId) {

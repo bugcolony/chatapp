@@ -19,6 +19,8 @@ class VoiceChannelController extends Controller
             abort(404);
         }
 
+        abort_if($channel->type === ChannelType::DIRECT_MESSAGE && ! $channel->hasFriendOf(auth()->user()), 403);
+
         return response()->json([
             'token' => $service->newAccessToken($channel),
         ]);

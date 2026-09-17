@@ -18,6 +18,10 @@ const props = defineProps({
   summaries: {
     type: Boolean,
     default: false
+  },
+  locked: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -237,10 +241,17 @@ watchDebounced([canAck, lastMessageId], () => {
       />
 
       <MessageComposer
+        v-if="!locked"
         v-model="draft"
         class="mb-10"
         @send="handleSend"
       />
+      <div
+        v-else
+        class="mx-3 mb-10 mt-2 flex min-h-16 items-center rounded-2xl border border-muted bg-elevated/95 px-4 py-2 text-sm text-muted sm:mx-4"
+      >
+        You're no longer friends
+      </div>
 
       <UButton
         v-if="viewingHistory"

@@ -25,7 +25,8 @@ class MessagePolicy
     {
         if ($channel->server === null ) {
             if ($channel->type === ChannelType::DIRECT_MESSAGE) {
-                return $channel->participants()->where('user_id', $user->id)->exists();
+                return $channel->participants()->where('user_id', $user->id)->exists()
+                    && $channel->hasFriendOf($user);
             }
 
             return false;

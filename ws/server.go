@@ -37,6 +37,7 @@ type SubscribeServerCommand struct {
 
 type Broadcast struct {
 	route Route
+	op    int
 	data  []byte
 }
 
@@ -111,7 +112,7 @@ func decodeEvent(payload string) (Broadcast, bool) {
 		return Broadcast{}, false
 	}
 
-	return Broadcast{route: route, data: event.Client}, true
+	return Broadcast{route: route, op: event.Gateway.Op, data: event.Client}, true
 }
 
 func newWebSocket(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
@@ -180,7 +181,13 @@ func (s *Server) webSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := &Client{user, s.hub, user.ServerSubscriptions, user.Friends, sync.Once{}, ws, make(chan []byte, 256)}
+	friends := make(map[int]bool, len(user.Friends))
+
+	for _, friendId := range user.Friends {
+		friends[friendId] = true
+	}
+
+	client := &Client{user, s.hub, user.ServerSubscriptions, friends, sync.Once{}, ws, make(chan []byte, 256)}
 
 	s.hub.register <- client
 

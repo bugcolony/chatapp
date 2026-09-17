@@ -4,11 +4,13 @@ namespace App\Services\Gateway;
 
 use App\Enums\BroadcastOperation;
 use App\Enums\ChannelType;
+use App\Http\Resources\Api\V1\FriendResource;
 use App\Http\Resources\Api\V1\MessageAttachmentResource;
 use App\Http\Resources\Api\V1\MessageMentionResource;
 use App\Http\Resources\Api\V1\UserResource;
 use App\Models\Channel;
 use App\Models\Message;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use JsonSerializable;
 
@@ -17,7 +19,8 @@ final readonly class GatewayEvent implements JsonSerializable
     public function __construct(
         public BroadcastOperation $op,
         public Route              $route,
-        public array              $data
+        public array              $data,
+        public ?BroadcastOperation $gatewayOp = null,
     )
     {
     }
@@ -126,6 +129,45 @@ final readonly class GatewayEvent implements JsonSerializable
         );
     }
 
+    public static function friendRequestReceived(User $sender, int $recipientId): self
+    {
+        return new self(
+            BroadcastOperation::FRIEND_REQUEST_RECEIVED,
+            Route::users($recipientId),
+            [
+                'user' => FriendResource::make($sender)->resolve(),
+            ],
+        );
+    }
+
+    public static function friendAdded(User $user, User $friend, int $channelId): self
+    {
+        return new self(
+            BroadcastOperation::FRIEND_ADDED,
+            Route::users($user->id, $friend->id),
+            [
+                'channel_id' => $channelId,
+                'users' => [
+                    FriendResource::make($user)->resolve(),
+                    FriendResource::make($friend)->resolve(),
+                ],
+            ],
+            BroadcastOperation::FRIEND_ADDED,
+        );
+    }
+
+    public static function friendRemoved(int $userId, int $friendId): self
+    {
+        return new self(
+            BroadcastOperation::FRIEND_REMOVED,
+            Route::users($userId, $friendId),
+            [
+                'user_ids' => [$userId, $friendId],
+            ],
+            BroadcastOperation::FRIEND_REMOVED,
+        );
+    }
+
     private static function channelRoute(Channel $channel): Route
     {
         return $channel->type === ChannelType::DIRECT_MESSAGE
@@ -139,8 +181,14 @@ final readonly class GatewayEvent implements JsonSerializable
 
     public function jsonSerialize(): array
     {
+        $gateway = ['route' => $this->route];
+
+        if ($this->gatewayOp !== null) {
+            $gateway['op'] = $this->gatewayOp->value;
+        }
+
         return [
-            'gateway' => ['route' => $this->route],
+            'gateway' => $gateway,
             'client' => ['op' => $this->op->value, 'data' => $this->data],
         ];
     }

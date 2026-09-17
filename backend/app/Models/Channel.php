@@ -72,4 +72,9 @@ class Channel extends Model
     {
         return $this->hasMany(ChannelRead::class);
     }
+
+    public function hasFriendOf(User $user): bool
+    {
+        return $user->friends()->whereIn('users.id', $this->participants()->select('users.id'))->exists();
+    }
 }

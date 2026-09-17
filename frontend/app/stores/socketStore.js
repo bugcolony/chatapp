@@ -171,6 +171,21 @@ export const useSocketStore = defineStore('socket', () => {
             case RealtimeOperations.MEMBER_STATUS:
                 serverStore.setServerMemberStatus(data.server_id, data)
                 break;
+            case RealtimeOperations.FRIEND_REQUEST_RECEIVED:
+                serverStore.addIncomingFriendRequest(data.user)
+                break;
+            case RealtimeOperations.FRIEND_ADDED:
+                serverStore.addFriend(data.users.find((u) => u.id !== auth.user?.id))
+                break;
+            case RealtimeOperations.FRIEND_REMOVED:
+                serverStore.dropFriend(data.user_ids.find((id) => id !== auth.user?.id))
+                break;
+            case RealtimeOperations.FRIEND_STATUS_SNAPSHOT:
+                serverStore.setFriendStatusSnapshot(data.friends)
+                break;
+            case RealtimeOperations.FRIEND_STATUS:
+                serverStore.setFriendStatus(data.user_id, data.status)
+                break;
             case RealtimeOperations.TYPING_START:
                 serverStore.setChannelTypingPresence(data.channel_id, data.user_id)
                 break;
