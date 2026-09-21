@@ -168,9 +168,47 @@ final readonly class GatewayEvent implements JsonSerializable
         );
     }
 
+    public static function groupChannelCreated(Channel $channel, array $userIds): self
+    {
+        return new self(
+            BroadcastOperation::GROUP_CHANNEL_CREATED,
+            Route::users(...$userIds),
+            self::groupPayload($channel),
+        );
+    }
+
+    public static function groupChannelUpdated(Channel $channel, array $userIds): self
+    {
+        return new self(
+            BroadcastOperation::GROUP_CHANNEL_UPDATED,
+            Route::users(...$userIds),
+            self::groupPayload($channel),
+        );
+    }
+
+    public static function groupChannelRemoved(int $channelId, array $userIds): self
+    {
+        return new self(
+            BroadcastOperation::GROUP_CHANNEL_REMOVED,
+            Route::users(...$userIds),
+            ['id' => $channelId],
+        );
+    }
+
+    private static function groupPayload(Channel $channel): array
+    {
+        return [
+            'id' => $channel->id,
+            'type' => $channel->type,
+            'owner_id' => $channel->owner_id,
+            'last_message_id' => $channel->last_message_id,
+            'participants' => FriendResource::collection($channel->participants)->resolve(),
+        ];
+    }
+
     private static function channelRoute(Channel $channel): Route
     {
-        return $channel->type === ChannelType::DIRECT_MESSAGE
+        return $channel->type->isDirect()
             ? Route::users(...DB::table('channel_participants')
                 ->where('channel_id', $channel->id)
                 ->orderBy('user_id')

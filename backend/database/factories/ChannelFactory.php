@@ -33,6 +33,11 @@ class ChannelFactory extends Factory
         return $this->state(['type' => ChannelType::CATEGORY]);
     }
 
+    public function group(): static
+    {
+        return $this->state(['type' => ChannelType::GROUP_DM, 'server_id' => null, 'name' => null]);
+    }
+
     public function locked(): static
     {
         return $this->state(['is_locked' => true]);

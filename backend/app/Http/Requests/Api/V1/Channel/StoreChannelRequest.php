@@ -17,7 +17,7 @@ class StoreChannelRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:100'],
-            'type' => ['required', 'string', Rule::enum(ChannelType::class)],
+            'type' => ['required', 'string', Rule::enum(ChannelType::class)->except([ChannelType::DIRECT_MESSAGE, ChannelType::GROUP_DM])],
             'parent_id' => ['nullable', 'integer', 'exists:channels,id'],
         ];
     }

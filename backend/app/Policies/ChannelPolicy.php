@@ -25,7 +25,7 @@ class ChannelPolicy
      */
     public function update(User $user, Channel $channel): bool
     {
-        if ($channel->type === ChannelType::DIRECT_MESSAGE) {
+        if ($channel->type->isDirect()) {
             return false;
         }
 
@@ -37,11 +37,29 @@ class ChannelPolicy
      */
     public function destroy(User $user, Channel $channel): bool
     {
-        if ($channel->type === ChannelType::DIRECT_MESSAGE) {
+        if ($channel->type->isDirect()) {
             return false;
         }
 
         return $this->canManageChannels($user, $channel->server);
+    }
+
+    public function addParticipant(User $user, Channel $channel): bool
+    {
+        return $channel->type === ChannelType::GROUP_DM
+            && $channel->participants()->where('user_id', $user->id)->exists();
+    }
+
+    public function removeParticipant(User $user, Channel $channel): bool
+    {
+        return $channel->type === ChannelType::GROUP_DM
+            && $channel->owner_id === $user->id;
+    }
+
+    public function leave(User $user, Channel $channel): bool
+    {
+        return $channel->type === ChannelType::GROUP_DM
+            && $channel->participants()->where('user_id', $user->id)->exists();
     }
 
     /**

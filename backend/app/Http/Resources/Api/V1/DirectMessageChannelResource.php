@@ -12,6 +12,7 @@ class DirectMessageChannelResource extends JsonResource
         return [
             'id' => $this->id,
             'type' => $this->type,
+            'owner_id' => $this->owner_id,
             'last_message_id' => $this->last_message_id,
             'last_read_id' => max((int) $this->last_read_id, (int) $this->pivot?->hidden_before_message_id),
             'participants' => FriendResource::collection($this->participants),
