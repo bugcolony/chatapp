@@ -86,7 +86,7 @@ class BroadcastVoiceChannelEvent
 
         return Channel::withTrashed()
             ->select('id', 'server_id', 'type')
-            ->whereIn('type', [ChannelType::VOICE, ChannelType::DIRECT_MESSAGE])
+            ->whereIn('type', [ChannelType::VOICE, ChannelType::DIRECT_MESSAGE, ChannelType::GROUP_DM])
             ->find((int) $channelId);
     }
 }

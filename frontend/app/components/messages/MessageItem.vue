@@ -9,6 +9,7 @@ import { userAvatarSrc } from '~/composables/useServerAvatar.js'
 import { useAppUrl } from '~/composables/useAppUrl.js'
 import { extractInviteCodes } from '~/utils/extractInviteCodes.js'
 import { installMessageMentionMarkdown } from '~/utils/messageMention.js'
+import {useMentionCandidates} from "~/composables/useMentionCandidates.js";
 
 const JUMBO_EMOJI_LIMIT = 27
 const SANITIZE_OPTIONS = {
@@ -19,6 +20,10 @@ const props = defineProps({
   message: {
     type: Object,
     required: true,
+  },
+  channelId: {
+    type: Number,
+    default: null,
   },
 })
 const created = useDateFormat(props.message.created_at, 'DD.MM.YYYY HH:mm')
@@ -33,14 +38,20 @@ const sanitizedContent = computed(() =>
     SANITIZE_OPTIONS,
   ),
 )
-const store = useServerStore()
-const { activeServerId, serverMembers } = storeToRefs(store)
-const mentionLabels = computed(() => new Map(
-  (serverMembers.value[activeServerId.value] ?? []).map(member => [
-    String(member.user.id),
-    member.display_name,
-  ]),
-))
+const mentionCandidates = useMentionCandidates(() => props.channelId)
+const mentionLabels = computed(() => {
+  const labels = new Map(
+    (props.message.mentions ?? [])
+      .filter(mention => mention.user_id && mention.fallback_name)
+      .map(mention => [String(mention.user_id), mention.fallback_name]),
+  )
+
+  mentionCandidates.value.forEach((candidate) => {
+    labels.set(String(candidate.id), candidate.label)
+  })
+
+  return labels
+})
 
 function resolveMentionLabel(id) {
   return mentionLabels.value.get(String(id)) ?? null

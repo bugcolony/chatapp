@@ -180,6 +180,17 @@ export const useSocketStore = defineStore('socket', () => {
             case RealtimeOperations.FRIEND_REMOVED:
                 serverStore.dropFriend(data.user_ids.find((id) => id !== auth.user?.id))
                 break;
+            case RealtimeOperations.GROUP_CHANNEL_CREATED:
+            case RealtimeOperations.GROUP_CHANNEL_UPDATED:
+                serverStore.upsertDirectChannel(data)
+                break;
+            case RealtimeOperations.GROUP_CHANNEL_REMOVED:
+                serverStore.removeDirectChannel(data.id)
+
+                if (serverStore.activeChannelId === data.id) {
+                    void navigateTo('/app')
+                }
+                break;
             case RealtimeOperations.FRIEND_STATUS_SNAPSHOT:
                 serverStore.setFriendStatusSnapshot(data.friends)
                 break;

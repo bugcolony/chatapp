@@ -14,4 +14,7 @@ enum BroadcastOperation: int
     case FRIEND_REQUEST_RECEIVED = 8;
     case FRIEND_ADDED = 9;
     case FRIEND_REMOVED = 10;
+    case GROUP_CHANNEL_CREATED = 11;
+    case GROUP_CHANNEL_UPDATED = 12;
+    case GROUP_CHANNEL_REMOVED = 13;
 }

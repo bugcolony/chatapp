@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ChannelType;
 use App\Enums\FriendStatus;
 use App\Services\DemoFixtureManager;
 use Database\Factories\UserFactory;
@@ -150,7 +151,8 @@ class User extends Authenticatable
             'user_id',
             'channel_id'
         )->where(fn ($query) => $query
-            ->whereNull('channel_participants.hidden_before_message_id')
+            ->where('channels.type', ChannelType::GROUP_DM)
+            ->orWhereNull('channel_participants.hidden_before_message_id')
             ->orWhereColumn('channel_participants.hidden_before_message_id', '<', 'channels.last_message_id'));
     }
 

@@ -64,7 +64,12 @@ class Channel extends Model
             'channel_participants',
             'channel_id',
             'user_id'
-        );
+        )->withPivot('hidden_before_message_id');
+    }
+
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_id');
     }
 
 

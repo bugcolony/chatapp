@@ -122,8 +122,64 @@ export const useServerStore = defineStore('server', {
             }
         },
 
+        upsertDirectChannel(channel) {
+            const existing = this.directChannels.get(channel.id);
+
+            this.directChannels.set(channel.id, {...(existing ?? {}), ...channel});
+
+            this.setLastMessage(channel.id, channel.last_message_id ?? 0);
+        },
+
+        removeDirectChannel(channelId) {
+            this.directChannels.delete(channelId);
+        },
+
+        async createGroupChannel(participantIds) {
+            const {$apiFetch} = useNuxtApp();
+
+            const res = await $apiFetch("direct/groups", {
+                method: "POST",
+                body: {participant_ids: participantIds},
+            });
+
+            this.upsertDirectChannel(res.data);
+
+            return res.data;
+        },
+
+        async addGroupParticipant(channelId, userId) {
+            const {$apiFetch} = useNuxtApp();
+
+            const res = await $apiFetch(`direct/${channelId}/participants`, {
+                method: "POST",
+                body: {user_id: userId},
+            });
+
+            this.upsertDirectChannel(res.data);
+
+            return res.data;
+        },
+
+        async removeGroupParticipant(channelId, userId) {
+            const {$apiFetch} = useNuxtApp();
+
+            const res = await $apiFetch(`direct/${channelId}/participants/${userId}`, {method: "DELETE"});
+
+            this.upsertDirectChannel(res.data);
+
+            return res.data;
+        },
+
+        async leaveGroupChannel(channelId) {
+            const {$apiFetch} = useNuxtApp();
+
+            await $apiFetch(`direct/${channelId}/leave`, {method: "POST"});
+
+            this.removeDirectChannel(channelId);
+        },
+
         async openDirectChannel(friendId) {
-            const existing = [...this.directChannels.values()].find((c) => c.participants.some((p) => p.id === friendId));
+            const existing = [...this.directChannels.values()].find((c) => c.type === 'direct_message' && c.participants.some((p) => p.id === friendId));
 
             if (existing) {
                 return existing;
@@ -222,7 +278,7 @@ export const useServerStore = defineStore('server', {
             this.dropFriend(userId);
 
             const voiceStore = useVoiceStore();
-            const channel = [...this.directChannels.values()].find((c) => c.participants.some((p) => p.id === userId));
+            const channel = [...this.directChannels.values()].find((c) => c.type === 'direct_message' && c.participants.some((p) => p.id === userId));
 
             if (channel && voiceStore.activeChannelId === channel.id) {
                 await voiceStore.disconnect(channel.id);

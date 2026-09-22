@@ -15,11 +15,17 @@ class VoiceChannelController extends Controller
      */
     public function __invoke(Channel $channel, LiveKitAccessService $service)
     {
-        if (!in_array($channel->type, [ChannelType::VOICE, ChannelType::DIRECT_MESSAGE], true)) {
+        if (!in_array($channel->type, [ChannelType::VOICE, ChannelType::DIRECT_MESSAGE, ChannelType::GROUP_DM], true)) {
             abort(404);
         }
 
         abort_if($channel->type === ChannelType::DIRECT_MESSAGE && ! $channel->hasFriendOf(auth()->user()), 403);
+
+        abort_if(
+            $channel->type === ChannelType::GROUP_DM
+            && ! $channel->participants()->where('user_id', auth()->user()->id)->exists(),
+            403
+        );
 
         return response()->json([
             'token' => $service->newAccessToken($channel),

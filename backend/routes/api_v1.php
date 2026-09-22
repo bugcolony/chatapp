@@ -92,6 +92,14 @@ Route::middleware(['auth:sanctum', AccountClosed::class, NotBanned::class, Ensur
     Route::prefix('direct')->group(static function () {
         Route::get('', [DirectMessageController::class, 'index']);
         Route::get('/voice-presence', [VoicePresenceController::class, 'direct']);
+        Route::post('/groups', [DirectMessageController::class, 'store'])->middleware(['throttle:10,1']);
+
+        Route::prefix('{channel}')->middleware([ChannelMember::class])->group(static function () {
+            Route::post('/participants', [DirectMessageController::class, 'storeParticipant']);
+            Route::delete('/participants/{user}', [DirectMessageController::class, 'destroyParticipant']);
+            Route::post('/leave', [DirectMessageController::class, 'leave']);
+        });
+
         Route::post('{friend}', [DirectMessageController::class, 'open']);
     });
 

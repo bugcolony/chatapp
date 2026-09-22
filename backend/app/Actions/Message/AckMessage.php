@@ -16,7 +16,7 @@ class AckMessage
         $userId = auth()->user()->id;
         $baseline = 0;
 
-        if ($channel->type !== ChannelType::DIRECT_MESSAGE) {
+        if (! $channel->type->isDirect()) {
             $membership = Member::query()
                 ->where('server_id', $channel->server_id)
                 ->where('user_id', $userId)

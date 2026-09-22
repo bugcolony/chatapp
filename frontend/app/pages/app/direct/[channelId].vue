@@ -3,11 +3,13 @@ import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import HomeSidebar from '~/components/servers/HomeSidebar.vue'
 import FriendsSidebar from '~/components/friends/FriendsSidebar.vue'
+import GroupMembersSidebar from '~/components/channels/GroupMembersSidebar.vue'
 import PinnedServerBar from '~/components/servers/PinnedServerBar.vue'
 import MessageThread from '~/components/messages/MessageThread.vue'
 import VoicePanel from '~/components/channels/VoicePanel.vue'
 import { useVoiceStore } from '~/stores/voiceStore.js'
 import { userAvatarSrc } from '~/composables/useServerAvatar.js'
+import {useAddParticipantsModal} from "~/composables/useAddParticipantsModal.js";
 
 definePageMeta({
   title: 'Chat',
@@ -25,13 +27,26 @@ const { voiceTextVisible } = storeToRefs(uiStore)
 const channelId = computed(() => Number(route.params.channelId))
 const channel = computed(() => directChannels.value.get(channelId.value) ?? null)
 const channelParticipants = computed(() => channel.value?.participants.filter((p) => p.id !== authStore.user?.id ) ?? [])
+const isGroup = computed(() => channel.value?.type === 'group_dm')
 const title = computed(() => channelParticipants.value.map((p) => p.name).join(', ') ?? '')
 const avatars = computed(() => channelParticipants.value.map((p) => userAvatarSrc(p)) ?? [])
 const callParticipants = computed(() => voiceChannelParticipants.value.get(channelId.value) ?? new Set())
 const joined = computed(() => activeChannelId.value === channelId.value)
 const showVoicePanel = computed(() => joined.value || callParticipants.value.size > 0)
 const voicePanelHidden = ref(false)
-const locked = computed(() => !channelParticipants.value.some((p) => friends.value.some((f) => f.id === p.id)))
+const locked = computed(() => isGroup.value
+  ? !channel.value?.participants.some((p) => p.id === authStore.user?.id)
+  : !channelParticipants.value.some((p) => friends.value.some((f) => f.id === p.id)))
+
+const { openAddParticipantsModal } = useAddParticipantsModal()
+
+function openAddParticipants() {
+  if (!channel.value) {
+    return
+  }
+
+  openAddParticipantsModal(channel.value)
+}
 
 uiStore.setServerDirectTab('direct')
 
@@ -81,12 +96,15 @@ uiStore.setServerDirectTab('direct')
             class="ml-3 rounded-xl bg-green-500 font-bold text-white hover:bg-green-400"
             @click="voiceStore.connect(channelId)"
         />
-<!--        <UButton-->
-<!--            icon="i-lucide-user-plus"-->
-<!--            color="neutral"-->
-<!--            variant="ghost"-->
-<!--            class="ml-1 rounded-xl font-bold text-white bg-slate-800 hover:bg-slate-700"-->
-<!--        />-->
+        <UButton
+            v-if="!locked"
+            icon="i-lucide-user-plus"
+            color="neutral"
+            variant="ghost"
+            class="ml-1 rounded-xl font-bold text-white bg-slate-800 hover:bg-slate-700"
+            :title="isGroup ? 'Add to group' : 'Start a group'"
+            @click="openAddParticipants"
+        />
       </div>
 
       <div class="relative flex min-h-0 min-w-0 flex-1 flex-col">
@@ -110,6 +128,10 @@ uiStore.setServerDirectTab('direct')
       </div>
     </main>
 
-    <FriendsSidebar />
+    <GroupMembersSidebar
+      v-if="isGroup && channel"
+      :channel="channel"
+    />
+    <FriendsSidebar v-else />
   </div>
 </template>

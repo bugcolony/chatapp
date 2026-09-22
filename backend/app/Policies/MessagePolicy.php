@@ -24,12 +24,16 @@ class MessagePolicy
     public function store(User $user, Channel $channel, int $attachmentBytes = 0): bool
     {
         if ($channel->server === null ) {
-            if ($channel->type === ChannelType::DIRECT_MESSAGE) {
-                return $channel->participants()->where('user_id', $user->id)->exists()
-                    && $channel->hasFriendOf($user);
+            if (! $channel->type->isDirect()) {
+                return false;
             }
 
-            return false;
+            if (! $channel->participants()->where('user_id', $user->id)->exists()) {
+                return false;
+            }
+
+            return $channel->type !== ChannelType::DIRECT_MESSAGE
+                || $channel->hasFriendOf($user);
         }
 
         $ctx = ServerPermissionContext::for($user, $channel->server);
@@ -54,7 +58,7 @@ class MessagePolicy
     public function view(User $user, Message $message): bool
     {
         if ($message->server === null) {
-            if ($message->channel->type === ChannelType::DIRECT_MESSAGE) {
+            if ($message->channel->type->isDirect()) {
                 return $message->channel->participants()->where('user_id', $user->id)->exists();
             }
 
