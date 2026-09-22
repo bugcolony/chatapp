@@ -9,6 +9,7 @@ import MessageThread from '~/components/messages/MessageThread.vue'
 import VoicePanel from '~/components/channels/VoicePanel.vue'
 import { useVoiceStore } from '~/stores/voiceStore.js'
 import { userAvatarSrc } from '~/composables/useServerAvatar.js'
+import {useAddParticipantsModal} from "~/composables/useAddParticipantsModal.js";
 
 definePageMeta({
   title: 'Chat',

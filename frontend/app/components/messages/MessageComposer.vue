@@ -7,26 +7,28 @@ import {
   messageEmojiExtension,
   messageEmojiMenuItems,
 } from '~/utils/messageEmojiExtension'
-import { userAvatarSrc } from '~/composables/useServerAvatar.js'
 import { isPreviewableImageType } from '~/utils/messageAttachment.js'
 import { createMessageMentionExtension } from '~/utils/messageMention.js'
 import { createKlipyGifMarkdown } from '~/utils/klipyGif.js'
+import {useMentionCandidates} from "~/composables/useMentionCandidates.js";
 
 const MAX_ATTACHMENT_SIZE = 2_000_000
 const MAX_MESSAGE_LENGTH = 2_000
 
-defineProps({
+const props = defineProps({
   placeholder: {
     type: String,
     default: 'Message',
+  },
+  channelId: {
+    type: Number,
+    default: null,
   },
 })
 
 const emit = defineEmits(['send'])
 const draft = defineModel({ type: String, default: '' })
 
-const store = useServerStore()
-const {activeServerId, serverMembers} = storeToRefs(store)
 const toast = useToast()
 const composerDropZone = useTemplateRef('composerDropZone')
 const attachment = shallowRef(null)
@@ -76,18 +78,16 @@ const attachmentPreviewUrl = useObjectUrl(() =>
   isPreviewableImage.value ? attachment.value : null,
 )
 
-const members = computed(() => {
-  return serverMembers.value[activeServerId.value] ? serverMembers.value[activeServerId.value].map((item) => {
-    return {
-      id: item.user.id,
-      label: item.display_name,
-      avatar: {
-        src: userAvatarSrc(item),
-        loading: 'lazy'
-      }
-    }
-  }) : []
-})
+const mentionCandidates = useMentionCandidates(() => props.channelId)
+
+const members = computed(() => mentionCandidates.value.map(candidate => ({
+  id: candidate.id,
+  label: candidate.label,
+  avatar: {
+    src: candidate.src,
+    loading: 'lazy',
+  },
+})))
 
 function resolveMentionLabel(id) {
   return members.value.find(member => String(member.id) === String(id))?.label ?? null

@@ -223,6 +223,7 @@ watchDebounced([canAck, lastMessageId], () => {
           v-for="[id, message] in activeMessageBucket ?? []"
           :key="id"
           :message="message"
+          :channel-id="channelId"
         />
       </div>
     </div>
@@ -243,6 +244,7 @@ watchDebounced([canAck, lastMessageId], () => {
       <MessageComposer
         v-if="!locked"
         v-model="draft"
+        :channel-id="channelId"
         class="mb-10"
         @send="handleSend"
       />

@@ -174,6 +174,49 @@ test('opening a direct channel never returns a group', function () {
     expect($this->postJson("/api/v1/direct/{$bob->id}")->json('data.id'))->not->toBe($groupId);
 });
 
+test('a mention of a group participant is recorded', function () {
+    [$alice, $bob] = User::factory()->count(2)->create();
+    $channelId = makeGroup($alice, [$bob]);
+
+    Sanctum::actingAs($alice);
+    $messageId = $this->postJson("/api/v1/channels/{$channelId}/messages", [
+        'content' => "hey [@{$bob->id}] look",
+        'client_id' => 1,
+    ])->assertCreated()->json('data.id');
+
+    expect(DB::table('message_mentions')->where('message_id', $messageId)->pluck('user_id')->all())
+        ->toBe([$bob->id]);
+});
+
+test('a fetched message carries its mention names', function () {
+    [$alice, $bob] = User::factory()->count(2)->create();
+    $channelId = makeGroup($alice, [$bob]);
+
+    Sanctum::actingAs($alice);
+    $this->postJson("/api/v1/channels/{$channelId}/messages", [
+        'content' => "hey [@{$bob->id}]",
+        'client_id' => 1,
+    ])->assertCreated();
+
+    $this->getJson("/api/v1/channels/{$channelId}/messages")
+        ->assertOk()
+        ->assertJsonPath('data.0.mentions.0.user_id', $bob->id)
+        ->assertJsonPath('data.0.mentions.0.fallback_name', $bob->name);
+});
+
+test('a mention of a non participant is dropped', function () {
+    [$alice, $bob, $dave] = User::factory()->count(3)->create();
+    $channelId = makeGroup($alice, [$bob]);
+
+    Sanctum::actingAs($alice);
+    $messageId = $this->postJson("/api/v1/channels/{$channelId}/messages", [
+        'content' => "hey [@{$dave->id}]",
+        'client_id' => 1,
+    ])->assertCreated()->json('data.id');
+
+    expect(DB::table('message_mentions')->where('message_id', $messageId)->count())->toBe(0);
+});
+
 test('a group appears in the direct channel list for its participants', function () {
     [$alice, $bob] = User::factory()->count(2)->create();
     $channelId = makeGroup($alice, [$bob]);
